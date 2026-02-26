@@ -150,12 +150,15 @@ export function getTerrainHeightXZ(x, z, flatRadius = 50, maxRadius = TERRAIN_RA
   const moundScale = 0.008;
   const mounds = fbm(x * moundScale, z * moundScale, 3) * 50 * hillFactor; // Big rolling mounds
   
-  // Mountains — very low frequency, tall peaks with threshold (matches LunarTerrain exactly)
-  const mtScale = 0.002;
-  const mtRaw = fbm(x * mtScale, z * mtScale, 3);
-  const mtThreshold = 0.55;
-  const mtPeak = Math.max(0, mtRaw - mtThreshold) / (1 - mtThreshold);
-  const mountains = mtPeak * mtPeak * 250 * hillFactor;
+  // Single mountain feature (matches LunarTerrain exactly)
+  const MT_X = -1800, MT_Z = 1400;
+  const MT_HEIGHT = 300;
+  const MT_RADIUS = 400;
+  const mdx = x - MT_X, mdz = z - MT_Z;
+  const mtDistSq = mdx * mdx + mdz * mdz;
+  const mtFalloff = Math.exp(-mtDistSq / (2 * MT_RADIUS * MT_RADIUS));
+  const mtDetail = 1 + fbm(x * 0.03, z * 0.03, 3) * 0.15;
+  const mountains = MT_HEIGHT * mtFalloff * mtDetail * hillFactor;
   
   // Blend edge smoothly
   const edgeFactor = 1 - Math.max(0, Math.min(1, (distFromCenter - maxRadius * 0.9) / (maxRadius * 0.3)));
@@ -176,9 +179,11 @@ export function getTerrainHeightXZ(x, z, flatRadius = 50, maxRadius = TERRAIN_RA
     const nHillFactor = Math.min(1, (nDist - flatRadius) / (maxRadius * 0.5));
     const nHeight = fbm(nx * scale, nz * scale, 4) * 30 * nHillFactor;
     const nMounds = fbm(nx * moundScale, nz * moundScale, 3) * 50 * nHillFactor;
-    const nMtRaw = fbm(nx * mtScale, nz * mtScale, 3);
-    const nMtPeak = Math.max(0, nMtRaw - mtThreshold) / (1 - mtThreshold);
-    const nMountains = nMtPeak * nMtPeak * 250 * nHillFactor;
+    const nmdx = nx - MT_X, nmdz = nz - MT_Z;
+    const nMtDistSq = nmdx * nmdx + nmdz * nmdz;
+    const nMtFalloff = Math.exp(-nMtDistSq / (2 * MT_RADIUS * MT_RADIUS));
+    const nMtDetail = 1 + fbm(nx * 0.03, nz * 0.03, 3) * 0.15;
+    const nMountains = MT_HEIGHT * nMtFalloff * nMtDetail * nHillFactor;
     const nEdgeFactor = 1 - Math.max(0, Math.min(1, (nDist - maxRadius * 0.9) / (maxRadius * 0.3)));
     return (nHeight + nMounds + nMountains) * nEdgeFactor;
   };

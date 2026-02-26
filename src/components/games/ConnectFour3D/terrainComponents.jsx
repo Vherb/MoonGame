@@ -774,13 +774,16 @@ export function LunarTerrain({ radius = TERRAIN_RADIUS, flatRadius = 50, showCol
         const moundScale = 0.008;
         const mounds = fbm(x * moundScale, z * moundScale, 3) * 50 * hillFactor; // Big rolling mounds
         
-        // Mountains — very low frequency, tall peaks with threshold so only some areas rise
-        const mtScale = 0.002;
-        const mtRaw = fbm(x * mtScale, z * mtScale, 3);
-        // Only raise terrain where noise > 0.55 (creates isolated mountain ranges)
-        const mtThreshold = 0.55;
-        const mtPeak = Math.max(0, mtRaw - mtThreshold) / (1 - mtThreshold); // 0-1 above threshold
-        const mountains = mtPeak * mtPeak * 250 * hillFactor; // Up to 250 units tall, squared for sharp peaks
+        // Single mountain feature at a fixed location
+        const MT_X = -1800, MT_Z = 1400; // mountain center
+        const MT_HEIGHT = 300;            // peak height
+        const MT_RADIUS = 400;            // base radius (gaussian sigma)
+        const mdx = x - MT_X, mdz = z - MT_Z;
+        const mtDistSq = mdx * mdx + mdz * mdz;
+        const mtFalloff = Math.exp(-mtDistSq / (2 * MT_RADIUS * MT_RADIUS));
+        // Add minor noise for rocky surface detail on the mountain
+        const mtDetail = 1 + fbm(x * 0.03, z * 0.03, 3) * 0.15;
+        const mountains = MT_HEIGHT * mtFalloff * mtDetail * hillFactor;
         
         // Blend edge smoothly
         const edgeFactor = 1 - Math.max(0, Math.min(1, (distFromCenter - radius * 0.9) / (radius * 0.3)));

@@ -1337,14 +1337,13 @@ export function PlayerMover({ firstPersonMode = false, setFirstPersonMode = null
         _flatQ.setFromAxisAngle(_Y_AXIS, effYaw);
 
         // Slerp between flat and sphere orientation based on blend
-        // ONLY apply once we're in sphere physics AND close to the surface.
-        // Before landing, the large extraLiftY (jetpack height) would get rotated
-        // by the quaternion, causing the avatar to shift sideways by dozens of units.
-        const closeToSurf = sphereModeRef.current >= 0.5 && Math.abs(distFromSurf) < 20;
-        if (closeToSurf && blend > 0.01) {
-          // Ramp based on proximity to surface: 0 at 20 units away, 1 at surface
-          const proxFactor = Math.max(0, 1 - Math.abs(distFromSurf) / 20);
-          const bodyBlend = proxFactor * blend * blend; // stays small until very close
+        // ONLY apply once the player has actually LANDED on the sphere surface.
+        // During descent, the character stays upright (like a rocket landing).
+        const landed = sphereModeRef.current >= 0.5 && Math.abs(distFromSurf) < 3;
+        if (landed && blend > 0.01) {
+          // Ramp based on proximity: 0 at 3 units, 1 at surface
+          const proxFactor = Math.max(0, 1 - Math.abs(distFromSurf) / 3);
+          const bodyBlend = proxFactor * blend * blend;
           _flatQ.slerp(sphereQRef.current, bodyBlend);
           ref.current.quaternion.copy(_flatQ);
         }
@@ -2769,7 +2768,7 @@ export function PlayerMover({ firstPersonMode = false, setFirstPersonMode = null
     wz + sphereUpRef.current.z * _sphereJY
   ] : null;
   try {
-    window.__CF_LOCAL_AVATAR__ = { x: wx, z: wz, yaw: localYaw, isRunning: runningNow, isWalking: !!(isWalking || isWalkingBackward || isStrafeLeft || isStrafeRight), isJumping: !!isJumping, isJetpacking: !!isJetpackingRef.current, jetpackFuel: jetpackFuelRef.current, isBoost: !!jetpackBoostActive, lift: (platformLift + jumpY), jetpackTiltX: jetpackTiltXRef.current, jetpackTiltZ: jetpackTiltZRef.current, isShooting: !!isShootingRef.current, isAiming: aimingNow, isScoping: !!weaponSystem.isAiming, isWalkingBackward, isStrafeLeft, isStrafeRight, isDead: !!weaponSystem.isDead, pitch: window.__CF_CAM_V_ANGLE__ || 0, sphereMode: _sphereOn ? 1 : 0, sphereBlend: _sphereBlend, sphereUp: _sphereUpArr, spherePlayerPos: _spherePlayerPos };
+    window.__CF_LOCAL_AVATAR__ = { x: wx, z: wz, yaw: localYaw, isRunning: runningNow, isWalking: !!(isWalking || isWalkingBackward || isStrafeLeft || isStrafeRight), isJumping: !!isJumping, isJetpacking: !!isJetpackingRef.current, jetpackFuel: jetpackFuelRef.current, isBoost: !!jetpackBoostActive, lift: (platformLift + jumpY), jetpackTiltX: jetpackTiltXRef.current, jetpackTiltZ: jetpackTiltZRef.current, isShooting: !!isShootingRef.current, isAiming: aimingNow, isScoping: !!weaponSystem.isAiming, isWalkingBackward, isStrafeLeft, isStrafeRight, isDead: !!weaponSystem.isDead, pitch: window.__CF_CAM_V_ANGLE__ || 0, sphereMode: _sphereOn ? 1 : 0, sphereBlend: _sphereBlend, sphereUp: _sphereUpArr, spherePlayerPos: _spherePlayerPos, sphereGrounded: _sphereOn && _sphereJY < 3 };
     window.__CF_COLLISION_FWD__ = COLLISION_FWD_OFFSET;
   } catch {}
       const t = performance.now();

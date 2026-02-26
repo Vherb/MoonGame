@@ -3274,12 +3274,12 @@ function ConnectFour3DView({ board, lastMove, colors, onSelectColumn, flip180 = 
         
         // ── Sphere mode camera (smooth blend) ──
         // Camera.up uses its OWN very slow blend, independent from the player physics blend.
-        // It only starts advancing once the player is actually grounded in sphere mode,
-        // preventing the violent camera flip during approach.
-        const isSphereModeFull = !!(msg.sphereMode && msg.sphereUp && msg.spherePlayerPos);
+        // It only starts advancing once the player has actually LANDED on the sphere,
+        // not during the descent — so the camera maintains its normal angle during approach.
+        const isSphereGrounded = !!(msg.sphereMode && msg.sphereGrounded && msg.sphereUp);
         const CAM_UP_BLEND_IN  = 0.6;   // ~1.7 seconds to fully align
         const CAM_UP_BLEND_OUT = 0.8;   // ~1.25 seconds to return to flat
-        if (isSphereModeFull) {
+        if (isSphereGrounded) {
           camUpBlend.current = Math.min(1, camUpBlend.current + CAM_UP_BLEND_IN * dt);
         } else {
           camUpBlend.current = Math.max(0, camUpBlend.current - CAM_UP_BLEND_OUT * dt);

@@ -704,7 +704,7 @@ export function LunarTerrain({ radius = TERRAIN_RADIUS, flatRadius = 50, showCol
   
   // Create terrain geometry with heightmap
   const terrainGeometry = useMemo(() => {
-    const segments = 300; // high resolution for smooth hills
+    const segments = 500; // high resolution so mesh closely matches physics noise
     const size = radius * 2.2;
     const geo = new THREE.PlaneGeometry(size, size, segments, segments);
     
@@ -774,10 +774,18 @@ export function LunarTerrain({ radius = TERRAIN_RADIUS, flatRadius = 50, showCol
         const moundScale = 0.008;
         const mounds = fbm(x * moundScale, z * moundScale, 3) * 50 * hillFactor; // Big rolling mounds
         
+        // Mountains — very low frequency, tall peaks with threshold so only some areas rise
+        const mtScale = 0.002;
+        const mtRaw = fbm(x * mtScale, z * mtScale, 3);
+        // Only raise terrain where noise > 0.55 (creates isolated mountain ranges)
+        const mtThreshold = 0.55;
+        const mtPeak = Math.max(0, mtRaw - mtThreshold) / (1 - mtThreshold); // 0-1 above threshold
+        const mountains = mtPeak * mtPeak * 250 * hillFactor; // Up to 250 units tall, squared for sharp peaks
+        
         // Blend edge smoothly
         const edgeFactor = 1 - Math.max(0, Math.min(1, (distFromCenter - radius * 0.9) / (radius * 0.3)));
         
-        positions.setZ(i, (height + mounds) * edgeFactor);
+        positions.setZ(i, (height + mounds + mountains) * edgeFactor);
       }
     }
     

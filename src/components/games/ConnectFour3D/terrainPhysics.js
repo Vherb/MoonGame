@@ -150,34 +150,46 @@ export function getTerrainHeightXZ(x, z, flatRadius = 50, maxRadius = TERRAIN_RA
   const moundScale = 0.008;
   const mounds = fbm(x * moundScale, z * moundScale, 3) * 50 * hillFactor; // Big rolling mounds
   
+  // Mountains — very low frequency, tall peaks with threshold (matches LunarTerrain exactly)
+  const mtScale = 0.002;
+  const mtRaw = fbm(x * mtScale, z * mtScale, 3);
+  const mtThreshold = 0.55;
+  const mtPeak = Math.max(0, mtRaw - mtThreshold) / (1 - mtThreshold);
+  const mountains = mtPeak * mtPeak * 250 * hillFactor;
+  
   // Blend edge smoothly
   const edgeFactor = 1 - Math.max(0, Math.min(1, (distFromCenter - maxRadius * 0.9) / (maxRadius * 0.3)));
   
-  // Sample multiple nearby points and take the maximum to avoid clipping through peaks
-  const result = (height + mounds) * edgeFactor;
-  const offset = 0.5; // small offset for nearby sampling
+  // Base height at exact position
+  const result = (height + mounds + mountains) * edgeFactor;
+  
+  // Sample 4 nearby points and take the maximum to avoid clipping through peaks
+  // (the visual mesh is a discrete grid — physics must match the interpolated surface)
+  const offset = 2.0; // sample radius (matches ~half a mesh cell at 500 segments)
   const h1 = result;
   
-  // Sample 4 nearby points and take max to catch peaks
-  const hashOffset = (dx, dz) => {
+  const sampleAt = (dx, dz) => {
     const nx = x + dx;
     const nz = z + dz;
     const nDist = Math.sqrt(nx * nx + nz * nz);
     if (nDist < flatRadius) return 0;
     const nHillFactor = Math.min(1, (nDist - flatRadius) / (maxRadius * 0.5));
-    const nHeight = fbm(nx * scale, nz * scale, 4) * 12 * nHillFactor; // Increased from 5 to 12
-    const nMounds = fbm(nx * moundScale, nz * moundScale, 3) * 20 * nHillFactor; // Increased from 8 to 20
+    const nHeight = fbm(nx * scale, nz * scale, 4) * 30 * nHillFactor;
+    const nMounds = fbm(nx * moundScale, nz * moundScale, 3) * 50 * nHillFactor;
+    const nMtRaw = fbm(nx * mtScale, nz * mtScale, 3);
+    const nMtPeak = Math.max(0, nMtRaw - mtThreshold) / (1 - mtThreshold);
+    const nMountains = nMtPeak * nMtPeak * 250 * nHillFactor;
     const nEdgeFactor = 1 - Math.max(0, Math.min(1, (nDist - maxRadius * 0.9) / (maxRadius * 0.3)));
-    return (nHeight + nMounds) * nEdgeFactor;
+    return (nHeight + nMounds + nMountains) * nEdgeFactor;
   };
   
-  const h2 = hashOffset(offset, 0);
-  const h3 = hashOffset(-offset, 0);
-  const h4 = hashOffset(0, offset);
-  const h5 = hashOffset(0, -offset);
+  const h2 = sampleAt(offset, 0);
+  const h3 = sampleAt(-offset, 0);
+  const h4 = sampleAt(0, offset);
+  const h5 = sampleAt(0, -offset);
   
-  // Return max to avoid going through peaks
-  return Math.max(h1, h2, h3, h4, h5);
+  // Return max + small bias to keep player above mesh in concave areas
+  return Math.max(h1, h2, h3, h4, h5) + 1.5;
 }
 
 // Get terrain height for a generated terrain cube at position (x, z)

@@ -3039,6 +3039,7 @@ function ConnectFour3DView({ board, lastMove, colors, onSelectColumn, flip180 = 
     const isMoving = useRef(false);
     const wasFollowingRocket = useRef(false);
     const camUpBlend = useRef(0);   // camera's own slow sphere-up blend (independent from player blend)
+    const smoothTarget = useRef(null);  // smoothed lookAt target (prevents 180 flip on sphere mode entry/exit)
     const lastCameraDistance = useRef(cameraDistance);
     const lastCameraHeight = useRef(cameraHeight);
     const isFirstFrame = useRef(true);
@@ -3334,20 +3335,22 @@ function ConnectFour3DView({ board, lastMove, colors, onSelectColumn, flip180 = 
           }
           camera.position.copy(smoothPos.current);
 
+          // Smooth the lookAt target to prevent 180 flip on sphere mode entry
+          if (!smoothTarget.current) smoothTarget.current = targetPos.clone();
+          else smoothTarget.current.lerp(targetPos, alpha);
+
           if (firstPersonMode) {
-            // FPS on sphere — use quaternion-based rotation instead of flat Euler
-            // For now, fall through to lookAt since FPS on sphere is complex
-            camera.lookAt(targetPos);
+            camera.lookAt(smoothTarget.current);
             window.__CF_FPS_CAMERA_YAW__ = totalYaw;
             window.__CF_FPS_CAM_POS__ = [smoothPos.current.x, smoothPos.current.y, smoothPos.current.z];
           } else {
-            camera.lookAt(targetPos);
+            camera.lookAt(smoothTarget.current);
           }
 
           // Update orbit controls
           const ctrl = controlsRef.current;
           if (ctrl && !firstPersonMode) {
-            ctrl.target.lerp(targetPos, alpha);
+            ctrl.target.lerp(smoothTarget.current, alpha);
             ctrl.update();
           }
 
@@ -3402,21 +3405,20 @@ function ConnectFour3DView({ board, lastMove, colors, onSelectColumn, flip180 = 
         }
         camera.position.copy(smoothPos.current);
         
+        // Smooth the lookAt target (shared ref with sphere mode — prevents 180 flip on transition)
+        if (!smoothTarget.current) smoothTarget.current = targetPos.clone();
+        else smoothTarget.current.lerp(targetPos, alpha);
+
         // In first-person mode, use rotation for look direction with vertical angle
         if (firstPersonMode) {
-          // In first-person, camera rotation is independent - use horizontal/vertical angles
-          camera.rotation.order = 'YXZ'; // Yaw first, then pitch - prevents tilt
-          camera.rotation.y = behindYaw + horizontalAngle.current;  // Character yaw + camera orbit
-          camera.rotation.x = verticalAngle.current;  // Pitch (up/down) - positive looks up
-          camera.rotation.z = 0;                      // No roll
-          // Publish the final FPS camera state so PlayerMover can sync rotation, movement, AND shooting.
-          // We publish to window globals because after a weapon-state re-render CameraFollower
-          // remounts and its useFrame moves to end-of-queue — PlayerMover would otherwise
-          // read a stale camera.position set by OrbitControls instead of us.
+          camera.rotation.order = 'YXZ';
+          camera.rotation.y = behindYaw + horizontalAngle.current;
+          camera.rotation.x = verticalAngle.current;
+          camera.rotation.z = 0;
           window.__CF_FPS_CAMERA_YAW__ = totalYaw;
           window.__CF_FPS_CAM_POS__ = [smoothPos.current.x, smoothPos.current.y, smoothPos.current.z];
         } else {
-          camera.lookAt(targetPos);
+          camera.lookAt(smoothTarget.current);
         }
         
         // Update orbit controls target
@@ -3424,9 +3426,8 @@ function ConnectFour3DView({ board, lastMove, colors, onSelectColumn, flip180 = 
         if (ctrl) {
           if (firstPersonMode) {
             // In FPS mode, skip ctrl.update() — manual camera rotation handles everything
-            // OrbitControls.update() would overwrite our rotation
           } else {
-            ctrl.target.lerp(targetPos, alpha);
+            ctrl.target.lerp(smoothTarget.current, alpha);
             ctrl.update();
           }
         }

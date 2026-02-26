@@ -871,8 +871,9 @@ export function PlayerMover({ firstPersonMode = false, setFirstPersonMode = null
         });
       }
       
-      // Check if near vehicle and handle enter
-      if (xButtonPressed && vehicleSys && vehicleSys.nearVehicle && !vehicleSys.isInVehicle) {
+      // Check if near vehicle and handle enter (skip if in build mode — X is used for destroy)
+      const isBuildMode = window.__CF_BUILDING_STATE__?.buildMode || false;
+      if (xButtonPressed && !isBuildMode && vehicleSys && vehicleSys.nearVehicle && !vehicleSys.isInVehicle) {
         console.log('🚁 [VEHICLE] Entering vehicle from X button!');
         vehicleSys.enterVehicle({
           position: vehicleSys.nearVehicle.position,
@@ -893,8 +894,10 @@ export function PlayerMover({ firstPersonMode = false, setFirstPersonMode = null
         delete justPressed.current['E'];
       }
       
-      // Check weapon controls (LB/RB for weapon switching, etc.)
-      weaponSystem.checkGamepadControls();
+      // Check weapon controls (LB/RB for weapon switching, etc.) — skip in build mode
+      if (!isBuildMode) {
+        weaponSystem.checkGamepadControls();
+      }
       
       // Shoot when RT pressed (only if not in menu and not jetpacking)
       // When jetpack is equipped AND we're not in first-person mode, RT is used for

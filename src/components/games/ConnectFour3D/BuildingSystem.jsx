@@ -262,6 +262,12 @@ export default function BuildingSystem({ groundY, wsSend }) {
   const ghostRotRef = useRef(0);
   const placeDebounce = useRef(0);
 
+  // Gamepad previous-frame button states for edge detection
+  const gpPrev = useRef({
+    a: false, x: false, lb: false, rb: false,
+    dpadLeft: false, dpadRight: false, r3: false,
+  });
+
   // Sync placed pieces to physics cache for walkable collision
   useEffect(() => {
     const physPieces = pieces.map(p => {
@@ -343,6 +349,62 @@ export default function BuildingSystem({ groundY, wsSend }) {
       ghostValid: isValid,
       ghostPosition: finalPos,
     };
+
+    // --- Gamepad controls (polled each frame while in build mode) ---
+    const gamepads = navigator.getGamepads ? navigator.getGamepads() : [];
+    const gp = gamepads[0] || gamepads[1] || gamepads[2] || gamepads[3] || null;
+    if (gp) {
+      const prev = gpPrev.current;
+      const aBtn  = gp.buttons[0]?.pressed || false;
+      const xBtn  = gp.buttons[2]?.pressed || false;
+      const lbBtn = gp.buttons[4]?.pressed || false;
+      const rbBtn = gp.buttons[5]?.pressed || false;
+      const dlBtn = gp.buttons[14]?.pressed || false;
+      const drBtn = gp.buttons[15]?.pressed || false;
+
+      // A button — place piece
+      if (aBtn && !prev.a) {
+        const placed = placePiece('local');
+        if (placed && wsSend) {
+          try { wsSend({ type: 'build_place', piece: placed }); } catch {}
+        }
+      }
+
+      // X button — destroy nearest own piece
+      if (xBtn && !prev.x) {
+        const av = window.__CF_LOCAL_AVATAR__;
+        if (av) {
+          const all = useBuildingStore.getState().pieces;
+          let closest = null, closestDist = 10;
+          for (const p of all) {
+            if (p.ownerId !== 'local') continue;
+            const ddx = av.x - p.x, ddz = av.z - p.z;
+            const dd = Math.sqrt(ddx * ddx + ddz * ddz);
+            if (dd < closestDist) { closestDist = dd; closest = p; }
+          }
+          if (closest) {
+            removePiece(closest.id);
+            if (wsSend) {
+              try { wsSend({ type: 'build_destroy', pieceId: closest.id }); } catch {}
+            }
+          }
+        }
+      }
+
+      // LB — rotate left
+      if (lbBtn && !prev.lb) ghostRotRef.current -= Math.PI / 2;
+      // RB — rotate right
+      if (rbBtn && !prev.rb) ghostRotRef.current += Math.PI / 2;
+
+      // D-pad Left/Right — cycle piece type
+      if (dlBtn && !prev.dpadLeft)  cyclePiece(-1);
+      if (drBtn && !prev.dpadRight) cyclePiece(1);
+
+      // Update prev state
+      prev.a = aBtn; prev.x = xBtn;
+      prev.lb = lbBtn; prev.rb = rbBtn;
+      prev.dpadLeft = dlBtn; prev.dpadRight = drBtn;
+    }
   });
 
   // Clean up window state when build mode exits
@@ -498,7 +560,8 @@ export function BuildingOverlays() {
     return () => clearInterval(iv);
   }, [buildMode]);
 
-  // Toggle build mode on B key
+  // Toggle build mode on B key or R3 (Right Stick Click, gamepad button 11)
+  const gpTogglePrev = useRef(false);
   useEffect(() => {
     const onKey = (e) => {
       if (e.key === 'b' || e.key === 'B') {
@@ -508,7 +571,27 @@ export function BuildingOverlays() {
       }
     };
     window.addEventListener('keydown', onKey);
-    return () => window.removeEventListener('keydown', onKey);
+
+    // Poll gamepad for R3 toggle (runs whether or not build mode is active)
+    let rafId;
+    const pollGamepad = () => {
+      const gamepads = navigator.getGamepads ? navigator.getGamepads() : [];
+      const gp = gamepads[0] || gamepads[1] || gamepads[2] || gamepads[3] || null;
+      if (gp) {
+        const r3Now = gp.buttons[11]?.pressed || false;
+        if (r3Now && !gpTogglePrev.current) {
+          toggleBuildMode();
+        }
+        gpTogglePrev.current = r3Now;
+      }
+      rafId = requestAnimationFrame(pollGamepad);
+    };
+    rafId = requestAnimationFrame(pollGamepad);
+
+    return () => {
+      window.removeEventListener('keydown', onKey);
+      cancelAnimationFrame(rafId);
+    };
   }, [toggleBuildMode]);
 
   const ghostState = window.__CF_BUILDING_STATE__ || {};
@@ -623,12 +706,19 @@ export function BuildingOverlays() {
         fontFamily: 'monospace', fontSize: 10, zIndex: 9500,
         lineHeight: 1.6,
       }}>
+        <div style={{ marginBottom: 4, color: '#aaa', fontSize: 9, opacity: 0.6 }}>KEYBOARD</div>
         <div><span style={{ color: '#fff' }}>Click</span> / <span style={{ color: '#fff' }}>Enter</span> — Place</div>
         <div><span style={{ color: '#fff' }}>Q/E</span> — Rotate</div>
         <div><span style={{ color: '#fff' }}>Scroll</span> / <span style={{ color: '#fff' }}>,.</span> — Cycle piece</div>
         <div><span style={{ color: '#fff' }}>1-7</span> — Select piece</div>
         <div><span style={{ color: '#fff' }}>X</span> — Destroy nearest</div>
         <div><span style={{ color: '#fff' }}>B</span> — Exit build mode</div>
+        <div style={{ marginTop: 6, marginBottom: 4, color: '#aaa', fontSize: 9, opacity: 0.6 }}>CONTROLLER</div>
+        <div><span style={{ color: '#00d4ff' }}>A</span> — Place</div>
+        <div><span style={{ color: '#00d4ff' }}>LB/RB</span> — Rotate</div>
+        <div><span style={{ color: '#00d4ff' }}>D-pad ←→</span> — Cycle piece</div>
+        <div><span style={{ color: '#00d4ff' }}>X</span> — Destroy nearest</div>
+        <div><span style={{ color: '#00d4ff' }}>R3</span> — Exit build mode</div>
       </div>
 
       {/* Placement validity indicator */}

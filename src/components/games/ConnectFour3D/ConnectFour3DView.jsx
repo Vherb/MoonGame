@@ -6262,7 +6262,7 @@ function ConnectFour3DView({ board, lastMove, colors, onSelectColumn, flip180 = 
             {/* Lunar terrain with hills and mounds - characters walk on the surface */}
             <LunarTerrain radius={TERRAIN_RADIUS} flatRadius={50} showCollisionBox={showCollisionMeshes} />
             {/* Giant moon sphere hovering off to the side */}
-            <GiantMoonSphere position={[1800, -1000, -2200]} radius={2000} />
+            <GiantMoonSphere position={[8000, 4000, -10000]} radius={2000} />
             {/* Simple staircase you can walk up */}
             <Staircase rocketPositionRef={rocketPositionRef} setFollowRocket={setFollowRocket} showCollisionMeshes={showCollisionMeshes} />
             {/* Extra placed props */}

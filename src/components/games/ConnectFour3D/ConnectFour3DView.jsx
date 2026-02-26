@@ -3395,22 +3395,34 @@ function ConnectFour3DView({ board, lastMove, colors, onSelectColumn, flip180 = 
         // NO floor clamp - allow camera to follow player down when falling off edges
         
         // Smooth lerp to desired position (instant update if settings just changed or first frame or first-person mode)
-        let alpha = Math.min(1, dt * 3.0);
+        // Use faster vertical follow when airborne (jetpack/jumping/falling) so camera doesn't lose the player
+        const isAirborne = !!(msg.isJetpacking || msg.isJumping);
+        const baseAlpha = dt * 3.0;                          // normal XZ follow
+        const vertAlpha = isAirborne ? dt * 18.0 : dt * 8.0; // Y follows much faster (near-instant when flying)
+        let alpha = Math.min(1, baseAlpha);
+        let alphaY = Math.min(1, vertAlpha);
         if (settingsChanged.current || isFirstFrame.current || firstPersonMode) {
           // Instantly snap to new position when settings change, on first frame, or in first-person mode
           smoothPos.current.copy(desiredCameraPos);
           settingsChanged.current = false;
           isFirstFrame.current = false;
           alpha = 1; // Full update for orbit controls too
+          alphaY = 1;
         } else {
-          // Normal smooth lerp (only in third-person)
-          smoothPos.current.lerp(desiredCameraPos, alpha);
+          // Split lerp: fast Y, smooth XZ
+          smoothPos.current.x += (desiredCameraPos.x - smoothPos.current.x) * alpha;
+          smoothPos.current.z += (desiredCameraPos.z - smoothPos.current.z) * alpha;
+          smoothPos.current.y += (desiredCameraPos.y - smoothPos.current.y) * alphaY;
         }
         camera.position.copy(smoothPos.current);
         
-        // Smooth the lookAt target (shared ref with sphere mode — prevents 180 flip on transition)
+        // Smooth the lookAt target — also use faster Y for vertical tracking
         if (!smoothTarget.current) smoothTarget.current = targetPos.clone();
-        else smoothTarget.current.lerp(targetPos, alpha);
+        else {
+          smoothTarget.current.x += (targetPos.x - smoothTarget.current.x) * alpha;
+          smoothTarget.current.z += (targetPos.z - smoothTarget.current.z) * alpha;
+          smoothTarget.current.y += (targetPos.y - smoothTarget.current.y) * alphaY;
+        }
 
         // In first-person mode, use rotation for look direction with vertical angle
         if (firstPersonMode) {
@@ -3430,7 +3442,10 @@ function ConnectFour3DView({ board, lastMove, colors, onSelectColumn, flip180 = 
           if (firstPersonMode) {
             // In FPS mode, skip ctrl.update() — manual camera rotation handles everything
           } else {
-            ctrl.target.lerp(smoothTarget.current, alpha);
+            // Split lerp for orbit controls target too (fast Y, smooth XZ)
+            ctrl.target.x += (smoothTarget.current.x - ctrl.target.x) * alpha;
+            ctrl.target.z += (smoothTarget.current.z - ctrl.target.z) * alpha;
+            ctrl.target.y += (smoothTarget.current.y - ctrl.target.y) * alphaY;
             ctrl.update();
           }
         }

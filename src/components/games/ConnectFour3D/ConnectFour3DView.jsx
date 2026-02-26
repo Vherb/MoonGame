@@ -3323,8 +3323,10 @@ function ConnectFour3DView({ board, lastMove, colors, onSelectColumn, flip180 = 
             .addScaledVector(sUp, heightAdj)
             .addScaledVector(camForward, -CAMERA_DISTANCE);
 
-          // Smooth lerp
-          let alpha = Math.min(1, dt * 3.0);
+          // Smooth lerp — slow during landing transition, faster once settled
+          const camSettled = camUpBlend.current;  // 0 = just entered, 1 = fully aligned
+          const lerpSpeed = 0.6 + camSettled * 2.4; // 0.6 at start → 3.0 when settled
+          let alpha = Math.min(1, dt * lerpSpeed);
           if (settingsChanged.current || isFirstFrame.current || firstPersonMode) {
             smoothPos.current.copy(desiredCameraPos);
             settingsChanged.current = false;

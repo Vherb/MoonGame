@@ -1279,19 +1279,15 @@ export function PlayerMover({ firstPersonMode = false, setFirstPersonMode = null
       if (sphereModeRef.current < 0.5 && blend >= 0.5) {
         // ── ENTER sphere physics ──
         sphereModeRef.current = 1;
-        // Immediately project ref onto the sphere surface so avatar and camera agree on frame 1
-        if (surfData) {
-          ref.current.position.x = surfData.surfacePoint[0] - bx;
-          ref.current.position.y = surfData.surfacePoint[1];
-          ref.current.position.z = surfData.surfacePoint[2] - bz;
-        } else {
-          ref.current.position.y = curWy;
-        }
+        // Keep ref at the player's CURRENT world position — no teleport.
+        // Just switch Y from flat (0) to world-Y so the 3D position stays identical.
+        ref.current.position.y = curWy;
+        // jumpY = radial distance from sphere surface (player descends from here)
         const entryJumpY = Math.max(0, distFromSurf);
         setPlatformLift(-localGroundY);
         setJumpY(entryJumpY);
-        sphereJumpYRef.current = entryJumpY;            // sync ref (avoids stale React state)
-        spherePlatformLiftRef.current = -localGroundY;  // sync ref
+        sphereJumpYRef.current = entryJumpY;
+        spherePlatformLiftRef.current = -localGroundY;
         // Start falling toward the surface
         if (entryJumpY > 1) {
           curGravityRef.current = GRAVITY_FALL;
@@ -1341,10 +1337,14 @@ export function PlayerMover({ firstPersonMode = false, setFirstPersonMode = null
         _flatQ.setFromAxisAngle(_Y_AXIS, effYaw);
 
         // Slerp between flat and sphere orientation based on blend
-        // Use a dampened curve (blend^3) so orientation barely changes during approach
-        // and only really kicks in once nearly grounded
-        if (blend > 0.01) {
-          const bodyBlend = blend * blend * blend; // cubic ease-in: 0.5→0.125, 0.8→0.512
+        // ONLY apply once we're in sphere physics AND close to the surface.
+        // Before landing, the large extraLiftY (jetpack height) would get rotated
+        // by the quaternion, causing the avatar to shift sideways by dozens of units.
+        const closeToSurf = sphereModeRef.current >= 0.5 && Math.abs(distFromSurf) < 20;
+        if (closeToSurf && blend > 0.01) {
+          // Ramp based on proximity to surface: 0 at 20 units away, 1 at surface
+          const proxFactor = Math.max(0, 1 - Math.abs(distFromSurf) / 20);
+          const bodyBlend = proxFactor * blend * blend; // stays small until very close
           _flatQ.slerp(sphereQRef.current, bodyBlend);
           ref.current.quaternion.copy(_flatQ);
         }

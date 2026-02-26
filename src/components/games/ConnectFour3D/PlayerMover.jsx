@@ -69,6 +69,8 @@ export function PlayerMover({ firstPersonMode = false, setFirstPersonMode = null
   const sphereTargetRef = useRef(0);                         // target blend value (0 or 1)
   const sphereUpRef = useRef(new THREE.Vector3(0, 1, 0));   // surface normal (world space)
   const sphereQRef = useRef(new THREE.Quaternion());         // cached sphere orientation quaternion
+  const sphereJumpYRef = useRef(0);                           // synchronous jumpY for sphere mode (avoids 1-frame React state lag)
+  const spherePlatformLiftRef = useRef(0);                    // synchronous platformLift for sphere mode
   const _Y_AXIS = useMemo(() => new THREE.Vector3(0, 1, 0), []);
   const _tmpV3a = useMemo(() => new THREE.Vector3(), []);
   const _tmpV3b = useMemo(() => new THREE.Vector3(), []);
@@ -1278,8 +1280,11 @@ export function PlayerMover({ firstPersonMode = false, setFirstPersonMode = null
         // ── ENTER sphere physics ──
         sphereModeRef.current = 1;
         ref.current.position.y = curWy;
+        const entryJumpY = Math.max(0, distFromSurf);
         setPlatformLift(-localGroundY);
-        setJumpY(Math.max(0, distFromSurf));
+        setJumpY(entryJumpY);
+        sphereJumpYRef.current = entryJumpY;            // sync ref (avoids stale React state)
+        spherePlatformLiftRef.current = -localGroundY;  // sync ref
         jumpVyRef.current = jumpVyRef.current; // keep current velocity for smooth transition
       } else if (sphereModeRef.current >= 0.5 && blend < 0.5) {
         // ── EXIT sphere physics ──
@@ -1421,6 +1426,7 @@ export function PlayerMover({ firstPersonMode = false, setFirstPersonMode = null
             }
           }
           jumpVyRef.current = vy;
+          sphereJumpYRef.current = y;  // sync ref for publish (avoids 1-frame lag)
           if (Math.abs(y - jumpY) > 0.00001) setJumpY(y);
 
           // Update ref.position for new jumpY
@@ -2743,10 +2749,12 @@ export function PlayerMover({ firstPersonMode = false, setFirstPersonMode = null
   const _sphereBlend = sphereBlendRef.current;
   const _sphereUpArr = (_sphereBlend > 0.01) ? [sphereUpRef.current.x, sphereUpRef.current.y, sphereUpRef.current.z] : null;
   // In sphere mode, compute the player's actual 3D position (surface + jumpY along normal)
+  // Use sphereJumpYRef (synchronous) rather than jumpY (React state, 1 frame behind)
+  const _sphereJY = _sphereOn ? sphereJumpYRef.current : 0;
   const _spherePlayerPos = _sphereOn ? [
-    wx + sphereUpRef.current.x * jumpY,
-    ref.current.position.y + sphereUpRef.current.y * jumpY,
-    wz + sphereUpRef.current.z * jumpY
+    wx + sphereUpRef.current.x * _sphereJY,
+    ref.current.position.y + sphereUpRef.current.y * _sphereJY,
+    wz + sphereUpRef.current.z * _sphereJY
   ] : null;
   try {
     window.__CF_LOCAL_AVATAR__ = { x: wx, z: wz, yaw: localYaw, isRunning: runningNow, isWalking: !!(isWalking || isWalkingBackward || isStrafeLeft || isStrafeRight), isJumping: !!isJumping, isJetpacking: !!isJetpackingRef.current, jetpackFuel: jetpackFuelRef.current, isBoost: !!jetpackBoostActive, lift: (platformLift + jumpY), jetpackTiltX: jetpackTiltXRef.current, jetpackTiltZ: jetpackTiltZRef.current, isShooting: !!isShootingRef.current, isAiming: aimingNow, isScoping: !!weaponSystem.isAiming, isWalkingBackward, isStrafeLeft, isStrafeRight, isDead: !!weaponSystem.isDead, pitch: window.__CF_CAM_V_ANGLE__ || 0, sphereMode: _sphereOn ? 1 : 0, sphereBlend: _sphereBlend, sphereUp: _sphereUpArr, spherePlayerPos: _spherePlayerPos };
@@ -2797,7 +2805,7 @@ export function PlayerMover({ firstPersonMode = false, setFirstPersonMode = null
   const childWithMotion = useMemo(() => {
     const arr = React.Children.toArray(children);
     if (arr.length > 0 && React.isValidElement(arr[0])) {
-      try { arr[0] = React.cloneElement(arr[0], { isWalking, isWalkingBackward, isRunning, isTurningLeft, isTurningRight, isJumping, isJetpacking, isFalling, isShooting: !!isShootingRef.current, isAiming: !!(firstPersonMode || weaponSystem.isAiming || window.__CF_FORCE_AIM__), isStrafeLeft, isStrafeRight, isDead: !!weaponSystem.isDead, jetpackTiltX: jetpackTiltXRef.current, jetpackTiltZ: jetpackTiltZRef.current, extraLiftY: (platformLift + jumpY), pitch: window.__CF_CAM_V_ANGLE__ || 0 }); } catch {}
+      try { arr[0] = React.cloneElement(arr[0], { isWalking, isWalkingBackward, isRunning, isTurningLeft, isTurningRight, isJumping, isJetpacking, isFalling, isShooting: !!isShootingRef.current, isAiming: !!(firstPersonMode || weaponSystem.isAiming || window.__CF_FORCE_AIM__), isStrafeLeft, isStrafeRight, isDead: !!weaponSystem.isDead, jetpackTiltX: jetpackTiltXRef.current, jetpackTiltZ: jetpackTiltZRef.current, extraLiftY: sphereModeRef.current >= 0.5 ? (spherePlatformLiftRef.current + sphereJumpYRef.current) : (platformLift + jumpY), pitch: window.__CF_CAM_V_ANGLE__ || 0 }); } catch {}
     }
     // Also adjust the Billboard / name label (idx=1) Y position to follow character lift
     if (arr.length > 1 && React.isValidElement(arr[1])) {

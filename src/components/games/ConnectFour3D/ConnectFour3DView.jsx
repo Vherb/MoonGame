@@ -3277,8 +3277,8 @@ function ConnectFour3DView({ board, lastMove, colors, onSelectColumn, flip180 = 
         // It only starts advancing once the player is actually grounded in sphere mode,
         // preventing the violent camera flip during approach.
         const isSphereModeFull = !!(msg.sphereMode && msg.sphereUp && msg.spherePlayerPos);
-        const CAM_UP_BLEND_IN  = 0.25;  // ~4 seconds to fully align (very gentle)
-        const CAM_UP_BLEND_OUT = 0.5;   // ~2 seconds to return to flat
+        const CAM_UP_BLEND_IN  = 0.6;   // ~1.7 seconds to fully align
+        const CAM_UP_BLEND_OUT = 0.8;   // ~1.25 seconds to return to flat
         if (isSphereModeFull) {
           camUpBlend.current = Math.min(1, camUpBlend.current + CAM_UP_BLEND_IN * dt);
         } else {

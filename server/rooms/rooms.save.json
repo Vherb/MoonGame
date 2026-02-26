@@ -1,5 +1,5 @@
 {
-  "savedAt": 1772148316689,
+  "savedAt": 1772148872506,
   "rooms": [
     {
       "code": "MOON-GXCK",
@@ -8,8 +8,18 @@
       "hostId": 14,
       "hostUsername": "poop",
       "createdAt": 1772137871913,
-      "lastActivity": 1772148316180,
-      "players": [],
+      "lastActivity": 1772148872004,
+      "players": [
+        {
+          "socketId": "f4f95b9b",
+          "userId": 14,
+          "username": "poop",
+          "character": "astronaut",
+          "avatar": "rocket",
+          "color": "#6366f1",
+          "joinedAt": 1772148868308
+        }
+      ],
       "placedCubes": [],
       "audioVisualizers": [],
       "avatarPositions": {},

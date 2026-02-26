@@ -6,10 +6,10 @@ import { create } from 'zustand';
 /* ================================================================
    Building Piece Definitions
    ================================================================ */
-export const GRID_SIZE = 4;       // each piece occupies a 4×4 grid cell
-export const WALL_HEIGHT = 4;     // wall height
-export const WALL_THICKNESS = 0.25;
-export const FLOOR_THICKNESS = 0.3;
+export const GRID_SIZE = 10;       // each piece occupies a 10×10 grid cell
+export const WALL_HEIGHT = 12;     // wall height
+export const WALL_THICKNESS = 0.5;
+export const FLOOR_THICKNESS = 0.5;
 export const RAMP_HEIGHT = WALL_HEIGHT;
 
 export const PIECE_TYPES = {
@@ -19,7 +19,7 @@ export const PIECE_TYPES = {
     glyph: '⬜',
     description: 'Flat platform base. Snaps to terrain.',
     dims: [GRID_SIZE, FLOOR_THICKNESS, GRID_SIZE], // width, height, depth
-    cost: { moonRock: 5 },
+    cost: {},
     color: '#8B8682',
     snapType: 'floor',       // sits on ground or on top of walls
     walkable: true,
@@ -30,7 +30,7 @@ export const PIECE_TYPES = {
     glyph: '🧱',
     description: 'Vertical wall. Snaps to foundation edges.',
     dims: [GRID_SIZE, WALL_HEIGHT, WALL_THICKNESS],
-    cost: { moonRock: 3 },
+    cost: {},
     color: '#9E9E9E',
     snapType: 'wall',
     walkable: false,
@@ -41,13 +41,13 @@ export const PIECE_TYPES = {
     glyph: '🚪',
     description: 'Wall with a door opening.',
     dims: [GRID_SIZE, WALL_HEIGHT, WALL_THICKNESS],
-    cost: { moonRock: 3, lunarCrystal: 1 },
+    cost: {},
     color: '#8E8E8E',
     snapType: 'wall',
     walkable: false,
     hasDoor: true,
-    doorWidth: 1.4,
-    doorHeight: 2.8,
+    doorWidth: 3.5,
+    doorHeight: 7.0,
   },
   wallWindow: {
     id: 'wallWindow',
@@ -55,14 +55,14 @@ export const PIECE_TYPES = {
     glyph: '🪟',
     description: 'Wall with a window opening.',
     dims: [GRID_SIZE, WALL_HEIGHT, WALL_THICKNESS],
-    cost: { moonRock: 3, lunarCrystal: 1 },
+    cost: {},
     color: '#8E8E8E',
     snapType: 'wall',
     walkable: false,
     hasWindow: true,
-    windowWidth: 1.8,
-    windowHeight: 1.2,
-    windowY: 1.8,  // center Y of window relative to wall base
+    windowWidth: 4.0,
+    windowHeight: 3.0,
+    windowY: 5.5,  // center Y of window relative to wall base
   },
   floor: {
     id: 'floor',
@@ -70,7 +70,7 @@ export const PIECE_TYPES = {
     glyph: '⬛',
     description: 'Horizontal slab for upper stories.',
     dims: [GRID_SIZE, FLOOR_THICKNESS, GRID_SIZE],
-    cost: { moonRock: 4 },
+    cost: {},
     color: '#7A7A7A',
     snapType: 'floor',
     walkable: true,
@@ -81,7 +81,7 @@ export const PIECE_TYPES = {
     glyph: '📐',
     description: 'Angled slope between levels.',
     dims: [GRID_SIZE, RAMP_HEIGHT, GRID_SIZE],
-    cost: { moonRock: 4 },
+    cost: {},
     color: '#6E6E6E',
     snapType: 'ramp',
     walkable: true,
@@ -92,7 +92,7 @@ export const PIECE_TYPES = {
     glyph: '▬',
     description: 'Half-height wall for cover.',
     dims: [GRID_SIZE, WALL_HEIGHT / 2, WALL_THICKNESS],
-    cost: { moonRock: 2 },
+    cost: {},
     color: '#9E9E9E',
     snapType: 'wall',
     walkable: false,

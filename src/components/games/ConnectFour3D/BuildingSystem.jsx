@@ -110,7 +110,7 @@ function getPieceGeometry(pieceType) {
 /* ================================================================
    Snap logic — find the nearest valid snap point
    ================================================================ */
-const SNAP_DISTANCE = 3.0; // max distance to snap to a point
+const SNAP_DISTANCE = 7.0; // max distance to snap to a point
 
 function findBestSnap(ghostPos, ghostRot, selectedPiece, placedPieces) {
   let bestSnap = null;
@@ -288,10 +288,14 @@ export default function BuildingSystem({ groundY, wsSend }) {
 
     const px = avatar.x || 0;
     const pz = avatar.z || 0;
-    const yaw = avatar.yaw || 0;
+    // In FPV, use camera yaw so ghost faces where you're looking; otherwise use camera orbit yaw for 3rd person
+    const isFPV = !!avatar.firstPersonMode;
+    const yaw = isFPV
+      ? (typeof window.__CF_FPS_CAMERA_YAW__ === 'number' ? window.__CF_FPS_CAMERA_YAW__ : (avatar.yaw || 0))
+      : (typeof window.__CF_3RD_CAMERA_YAW__ === 'number' ? window.__CF_3RD_CAMERA_YAW__ : (avatar.yaw || 0));
 
-    // Place ghost 8 units in front of player
-    const dist = 8;
+    // Place ghost 16 units in front of player
+    const dist = 16;
     const rawX = px + Math.sin(yaw) * dist;
     const rawZ = pz - Math.cos(yaw) * dist;
 

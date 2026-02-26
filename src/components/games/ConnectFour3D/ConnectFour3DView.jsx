@@ -3046,6 +3046,7 @@ function ConnectFour3DView({ board, lastMove, colors, onSelectColumn, flip180 = 
     const lastCameraHeight = useRef(cameraHeight);
     const isFirstFrame = useRef(true);
     const lastManualControlTime = useRef(0); // Track when user last manually controlled camera
+    const shoulderBlend = useRef(0); // 0 = normal 3rd person, 1 = full over-the-shoulder aim
     
     // Detect when camera settings change and skip lerp to avoid snap effect
     const settingsChanged = useRef(false);
@@ -3385,13 +3386,36 @@ function ConnectFour3DView({ board, lastMove, colors, onSelectColumn, flip180 = 
         // Calculate camera position with orbital controls
         const forward = new THREE.Vector3(0, 0, -1).applyAxisAngle(new THREE.Vector3(0, 1, 0), totalYaw);
         
+        // Over-the-shoulder aim: when LT is held in 3rd person, zoom in + shift right
+        const isAimingNow = !firstPersonMode && !!(msg.isScoping || msg.isAiming);
+        const SHOULDER_BLEND_SPEED = 6.0; // ~0.17s to fully blend
+        if (isAimingNow) {
+          shoulderBlend.current = Math.min(1, shoulderBlend.current + SHOULDER_BLEND_SPEED * dt);
+        } else {
+          shoulderBlend.current = Math.max(0, shoulderBlend.current - SHOULDER_BLEND_SPEED * dt);
+        }
+        const sb = shoulderBlend.current;
+        const AIM_DISTANCE = 20;   // closer zoom when aiming
+        const AIM_HEIGHT_OFFSET = 2; // slightly higher when aiming
+        const SHOULDER_RIGHT = 6;  // shift camera right for over-the-shoulder
+        
         // When looking up, camera drops moderately - standard 3rd person behavior
         const heightAdjustment = CAMERA_HEIGHT - (lookUpAmount * 10); // Drop camera 10 units when fully looking up
         // In first-person mode, use CAMERA_HEIGHT for position, otherwise use lookAtY
-        const cameraPosY = firstPersonMode ? (baseY + feetLift + CAMERA_HEIGHT) : (lookAtY + heightAdjustment);
-        const forwardOffset = firstPersonMode ? fpCamForward : (-CAMERA_DISTANCE * Math.cos(verticalAngle.current));
+        const cameraPosY = firstPersonMode
+          ? (baseY + feetLift + CAMERA_HEIGHT)
+          : (lookAtY + heightAdjustment + sb * AIM_HEIGHT_OFFSET);
+        const baseDist = CAMERA_DISTANCE * Math.cos(verticalAngle.current);
+        const aimDist = AIM_DISTANCE * Math.cos(verticalAngle.current);
+        const forwardOffset = firstPersonMode ? fpCamForward : -(baseDist + sb * (aimDist - baseDist));
         const desiredCameraPos = new THREE.Vector3(msg.x, cameraPosY, msg.z)
           .addScaledVector(forward, forwardOffset);
+        
+        // Apply shoulder offset (perpendicular to forward, to the right)
+        if (sb > 0.001 && !firstPersonMode) {
+          const right = new THREE.Vector3(1, 0, 0).applyAxisAngle(new THREE.Vector3(0, 1, 0), totalYaw);
+          desiredCameraPos.addScaledVector(right, SHOULDER_RIGHT * sb);
+        }
         
         // NO floor clamp - allow camera to follow player down when falling off edges
         
@@ -3435,6 +3459,10 @@ function ConnectFour3DView({ board, lastMove, colors, onSelectColumn, flip180 = 
           window.__CF_FPS_CAM_POS__ = [smoothPos.current.x, smoothPos.current.y, smoothPos.current.z];
         } else {
           camera.lookAt(smoothTarget.current);
+          // Publish camera yaw + pitch for 3rd-person shooting direction
+          window.__CF_3RD_CAMERA_YAW__ = totalYaw;
+          window.__CF_3RD_CAMERA_PITCH__ = verticalAngle.current;
+          window.__CF_3RD_SHOULDER_BLEND__ = shoulderBlend.current;
         }
         
         // Update orbit controls target
@@ -6752,14 +6780,14 @@ function ConnectFour3DView({ board, lastMove, colors, onSelectColumn, flip180 = 
       </div>
       
       {/* Combat UI - rendered outside Canvas for 2D overlay */}
-      {moveEnabled && weaponSystemData && showSelf && firstPersonMode && (
+      {moveEnabled && weaponSystemData && showSelf && (
         <>
           {/* Show crosshair always (scope overlay renders on top when fully scoped) */}
           <Crosshair 
             isAiming={weaponSystemData.isAiming}
             spread={0.01}
           />
-          <ScopeOverlay active={!!weaponSystemData.isAiming} />
+          {firstPersonMode && <ScopeOverlay active={!!weaponSystemData.isAiming} />}
           <CombatUI
             health={weaponSystemData.health}
             maxHealth={weaponSystemData.maxHealth}

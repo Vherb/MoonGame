@@ -826,13 +826,8 @@ export function PlayerMover({ firstPersonMode = false, setFirstPersonMode = null
       const rtPressed = rtValue > 0.5;
       gamepadState.current.rtButton = rtPressed;
       gamepadState.current.rtAnalog = rtValue;
-      // Only feed RT to jetpack when NOT in first-person mode (FPS uses RT for shooting)
-      // AND jetpack is equipped in inventory
-      if (!firstPersonMode && useInventoryStore.getState().hasEffect('enableJetpack')) {
-        jetpackRtAnalogRef.current = rtValue;
-      } else if (firstPersonMode) {
-        jetpackRtAnalogRef.current = 0;
-      }
+      // RT is always for shooting now (jetpack moved to hold-A/Space)
+      jetpackRtAnalogRef.current = 0;
       
       // Left Trigger (button 6 or axis 4) - Aim
       const ltValue = gamepad.buttons[6]?.value || (gamepad.axes[4] !== undefined ? (gamepad.axes[4] + 1) / 2 : 0);
@@ -899,12 +894,8 @@ export function PlayerMover({ firstPersonMode = false, setFirstPersonMode = null
         weaponSystem.checkGamepadControls();
       }
       
-      // Shoot when RT pressed (only if not in menu and not jetpacking)
-      // When jetpack is equipped AND we're not in first-person mode, RT is used for
-      // jetpack thrust instead of shooting — skip the shoot branch entirely.
-      const jetpackOwned = useInventoryStore.getState().hasEffect('enableJetpack');
-      const rtIsForJetpack = jetpackOwned && !firstPersonMode;
-      if (!settingsMenuOpen && rtPressed && !isJetpackingRef.current && !rtIsForJetpack && weaponSystem.canShoot && ref.current) {
+      // Shoot when RT pressed — RT is now ALWAYS shooting (jetpack moved to hold-A/Space)
+      if (!settingsMenuOpen && rtPressed && weaponSystem.canShoot && ref.current) {
         let shootPos, direction;
         
         if (firstPersonMode) {
@@ -929,16 +920,19 @@ export function PlayerMover({ firstPersonMode = false, setFirstPersonMode = null
             fpsPos[2] + direction[2] * forwardOffset
           ];
         } else {
-          // Third-person: shoot from character position in character facing direction
+          // Third-person: shoot from character position using camera aim direction
           const avatar = window.__CF_LOCAL_AVATAR__ || {};
-          const yaw = avatar.yaw || yawRef.current;
+          const camYaw = window.__CF_3RD_CAMERA_YAW__ || avatar.yaw || yawRef.current;
+          const camPitch = window.__CF_3RD_CAMERA_PITCH__ || 0;
+          // Use camera pitch for vertical aim (allows shooting up/down in 3rd person)
+          const cosPitch = Math.cos(camPitch);
           direction = [
-            Math.sin(yaw),
-            0, // Shoot horizontally in 3rd person
-            Math.cos(yaw)
+            -cosPitch * Math.sin(camYaw),
+             Math.sin(camPitch) * 0.5, // dampen vertical aim slightly in 3rd person
+            -cosPitch * Math.cos(camYaw)
           ];
           
-          const weaponOffset = 1.5;
+          const weaponOffset = 2.5;
           // Use ref world position for accurate height
           const worldPos = new THREE.Vector3();
           ref.current.getWorldPosition(worldPos);
@@ -979,17 +973,18 @@ export function PlayerMover({ firstPersonMode = false, setFirstPersonMode = null
           fpsPos[2] + direction[2] * forwardOffset
         ];
       } else {
-        // Third-person: shoot from character position
+        // Third-person: shoot from character position using camera aim direction
         const avatar = window.__CF_LOCAL_AVATAR__ || {};
-        const yaw = avatar.yaw || yawRef.current;
+        const camYaw = window.__CF_3RD_CAMERA_YAW__ || avatar.yaw || yawRef.current;
+        const camPitch = window.__CF_3RD_CAMERA_PITCH__ || 0;
+        const cosPitch = Math.cos(camPitch);
         direction = [
-          Math.sin(yaw),
-          0,
-          Math.cos(yaw)
+          -cosPitch * Math.sin(camYaw),
+           Math.sin(camPitch) * 0.5,
+          -cosPitch * Math.cos(camYaw)
         ];
         
-        const weaponOffset = 1.5;
-        // Use ref world position for accurate height
+        const weaponOffset = 2.5;
         const worldPos = new THREE.Vector3();
         ref.current.getWorldPosition(worldPos);
         shootPos = [
@@ -1184,10 +1179,14 @@ export function PlayerMover({ firstPersonMode = false, setFirstPersonMode = null
     }
 
     // ── Jetpack logic ──────────────────────────────────────────────────
+    // Jetpack is now activated by HOLDING jump (Space / A button / F key)
+    // RT is freed up for shooting in all camera modes
     const jetpackUnlocked = useInventoryStore.getState().hasEffect('enableJetpack');
-    const rtAnalog = jetpackRtAnalogRef.current;
     const fKeyHeld = !!(pressed.current['f'] || pressed.current['F']);
-    const jetpackInput = (!settingsMenuOpen && jetpackUnlocked) ? Math.max(fKeyHeld ? 1.0 : 0, rtAnalog) : 0;
+    const spaceHeld = !!pressed.current['Space'];
+    const aButtonHeld = gp.aButton || false; // A button held (not just pressed)
+    const jetpackHoldInput = (spaceHeld || aButtonHeld || fKeyHeld) ? 1.0 : 0;
+    const jetpackInput = (!settingsMenuOpen && jetpackUnlocked) ? jetpackHoldInput : 0;
     const fuel = jetpackFuelRef.current;
 
     if (jetpackInput > 0.1) {
@@ -1411,7 +1410,7 @@ export function PlayerMover({ firstPersonMode = false, setFirstPersonMode = null
         if (isJumping || jumpY > 0.001) {
           let vy;
           if (isJetpackingRef.current) {
-            const jetInput = Math.max((pressed.current['f'] || pressed.current['F']) ? 1.0 : 0, jetpackRtAnalogRef.current);
+            const jetInput = (pressed.current['f'] || pressed.current['F'] || pressed.current['Space'] || gp.aButton) ? 1.0 : 0;
             if (jetInput > 0.1) {
               vy = jumpVyRef.current + (JETPACK_THRUST * jetInput + JETPACK_GRAVITY) * dt;
             } else {
@@ -1420,7 +1419,8 @@ export function PlayerMover({ firstPersonMode = false, setFirstPersonMode = null
             vy = Math.max(-JETPACK_MAX_VY, Math.min(JETPACK_MAX_VY, vy));
             const hasStickInput = Math.abs(moving) > 0.15 || Math.abs(strafing) > 0.15;
             const descending = vy < -1;
-            setIsFalling(descending && !hasStickInput && (Math.max((pressed.current['f'] || pressed.current['F']) ? 1.0 : 0, jetpackRtAnalogRef.current) < 0.1));
+            const jetHeld = (pressed.current['f'] || pressed.current['F'] || pressed.current['Space'] || gp.aButton) ? 1.0 : 0;
+            setIsFalling(descending && !hasStickInput && jetHeld < 0.1);
           } else {
             vy = jumpVyRef.current + curGravityRef.current * dt;
           }
@@ -2505,7 +2505,7 @@ export function PlayerMover({ firstPersonMode = false, setFirstPersonMode = null
       let vy;
       // ── Jetpack thrust integration ──
       if (isJetpackingRef.current) {
-        const jetInput = Math.max((pressed.current['f'] || pressed.current['F']) ? 1.0 : 0, jetpackRtAnalogRef.current);
+        const jetInput = (pressed.current['f'] || pressed.current['F'] || pressed.current['Space'] || gp.aButton) ? 1.0 : 0;
         if (jetInput > 0.1) {
           vy = jumpVyRef.current + (JETPACK_THRUST * jetInput + JETPACK_GRAVITY) * dt;
         } else {
@@ -2769,7 +2769,7 @@ export function PlayerMover({ firstPersonMode = false, setFirstPersonMode = null
     wz
   ] : null;
   try {
-    window.__CF_LOCAL_AVATAR__ = { x: wx, z: wz, yaw: localYaw, isRunning: runningNow, isWalking: !!(isWalking || isWalkingBackward || isStrafeLeft || isStrafeRight), isJumping: !!isJumping, isJetpacking: !!isJetpackingRef.current, jetpackFuel: jetpackFuelRef.current, isBoost: !!jetpackBoostActive, lift: (platformLift + jumpY), jetpackTiltX: jetpackTiltXRef.current, jetpackTiltZ: jetpackTiltZRef.current, isShooting: !!isShootingRef.current, isAiming: aimingNow, isScoping: !!weaponSystem.isAiming, isWalkingBackward, isStrafeLeft, isStrafeRight, isDead: !!weaponSystem.isDead, pitch: window.__CF_CAM_V_ANGLE__ || 0, sphereMode: _sphereOn ? 1 : 0, sphereBlend: _sphereBlend, sphereUp: _sphereUpArr, spherePlayerPos: _spherePlayerPos, sphereGrounded: _sphereOn && _sphereJY < 3 };
+    window.__CF_LOCAL_AVATAR__ = { x: wx, z: wz, yaw: localYaw, firstPersonMode: !!firstPersonMode, isRunning: runningNow, isWalking: !!(isWalking || isWalkingBackward || isStrafeLeft || isStrafeRight), isJumping: !!isJumping, isJetpacking: !!isJetpackingRef.current, jetpackFuel: jetpackFuelRef.current, isBoost: !!jetpackBoostActive, lift: (platformLift + jumpY), jetpackTiltX: jetpackTiltXRef.current, jetpackTiltZ: jetpackTiltZRef.current, isShooting: !!isShootingRef.current, isAiming: aimingNow, isScoping: !!weaponSystem.isAiming, isWalkingBackward, isStrafeLeft, isStrafeRight, isDead: !!weaponSystem.isDead, pitch: window.__CF_CAM_V_ANGLE__ || 0, sphereMode: _sphereOn ? 1 : 0, sphereBlend: _sphereBlend, sphereUp: _sphereUpArr, spherePlayerPos: _spherePlayerPos, sphereGrounded: _sphereOn && _sphereJY < 3 };
     window.__CF_COLLISION_FWD__ = COLLISION_FWD_OFFSET;
   } catch {}
       const t = performance.now();

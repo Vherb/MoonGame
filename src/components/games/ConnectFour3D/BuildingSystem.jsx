@@ -169,9 +169,8 @@ function checkOverlap(x, y, z, rotation, pieceType, existingPieces) {
    ================================================================ */
 function PlacedPiece({ piece }) {
   const def = PIECE_TYPES[piece.type];
-  if (!def) return null;
-
   const geo = useMemo(() => getPieceGeometry(piece.type), [piece.type]);
+  if (!def) return null;
 
   // For extruded geometries (door/window walls, ramps), offset Y to base
   const isExtruded = ['wallDoor', 'wallWindow'].includes(piece.type);
@@ -214,9 +213,8 @@ function PlacedPiece({ piece }) {
    ================================================================ */
 function GhostPreview({ pieceType, position, rotation, valid }) {
   const def = PIECE_TYPES[pieceType];
-  if (!def) return null;
-
   const geo = useMemo(() => getPieceGeometry(pieceType), [pieceType]);
+  if (!def) return null;
   const isExtruded = ['wallDoor', 'wallWindow'].includes(pieceType);
   const yOffset = isExtruded ? 0 : def.dims[1] / 2;
   const zOffset = isExtruded ? -def.dims[2] / 2 : 0;

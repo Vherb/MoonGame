@@ -56,7 +56,7 @@ import { PlayerMover } from './PlayerMover';
 import { SettingsMenu } from './SettingsMenu';
 import { CharacterSelectMenu } from './CharacterSelectMenu';
 import { InventoryMenu } from './InventoryMenu';
-import ResourceSpawner from './ResourceNodes';
+import ResourceSpawner, { ResourceOverlays } from './ResourceNodes';
 
 // Extend Three.js to make postprocessing classes available in JSX
 extend({ EffectComposer, RenderPass, UnrealBloomPass });
@@ -6760,6 +6760,9 @@ function ConnectFour3DView({ board, lastMove, colors, onSelectColumn, flip180 = 
       {/* Damage flash & Death screen overlays */}
       {weaponSystemData && <DamageFlash active={weaponSystemData.damageFlash} />}
       {weaponSystemData && <DeathScreen active={weaponSystemData.isDead} />}
+
+      {/* Resource gathering overlays (HTML outside Canvas) */}
+      <ResourceOverlays />
 
       {/* ── Weapon Transform Editor (toggle button + panel) ── */}
       {!gunEditorOpen && (

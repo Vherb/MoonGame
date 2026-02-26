@@ -1,5 +1,9 @@
 // ResourceNodes.jsx — Collectible resource nodes scattered across the lunar terrain
 // Players walk up to glowing pickups, press E to collect, sell at depot for SC.
+//
+// ARCHITECTURE: Two exports —
+//  • ResourceSpawner (default)  → 3D meshes, runs inside <Canvas>
+//  • ResourceOverlays (named)   → HTML HUD / prompts, rendered OUTSIDE <Canvas>
 
 import React, { useRef, useMemo, useState, useCallback, useEffect } from 'react';
 import * as THREE from 'three';
@@ -160,105 +164,13 @@ function ResourceNode({ node, onCollect, playerDistSq }) {
 }
 
 /* ================================================================
-   Pickup Prompt HUD (HTML overlay)
+   Sell Depot — 3D meshes only (HTML handled by ResourceOverlays)
    ================================================================ */
-function PickupPrompt({ node, visible }) {
-  if (!visible || !node) return null;
-  const catalog = ITEM_CATALOG[node.resourceId];
-  if (!catalog) return null;
+const DEPOT_POS = [30, 0, 30];
+const DEPOT_RANGE = 12;
 
-  return (
-    <div style={{
-      position: 'fixed',
-      bottom: '22%',
-      left: '50%',
-      transform: 'translateX(-50%)',
-      background: 'rgba(0,0,0,0.75)',
-      border: `1px solid ${RARITY_COLORS[catalog.rarity] || '#fff'}`,
-      borderRadius: 8,
-      padding: '8px 18px',
-      color: '#fff',
-      fontFamily: 'monospace',
-      fontSize: 14,
-      textAlign: 'center',
-      pointerEvents: 'none',
-      zIndex: 9000,
-      backdropFilter: 'blur(4px)',
-    }}>
-      <span style={{ color: RARITY_COLORS[catalog.rarity], fontWeight: 'bold' }}>
-        {catalog.glyph} {catalog.label}
-      </span>
-      <span style={{ opacity: 0.7, marginLeft: 8 }}>({catalog.rarity})</span>
-      <br />
-      <span style={{ fontSize: 12, opacity: 0.8 }}>Press <b>E</b> to collect • Worth {catalog.sellValue} SC</span>
-    </div>
-  );
-}
-
-/* ================================================================
-   Resource HUD (top-right corner showing carried resources)
-   ================================================================ */
-function ResourceHUD() {
-  const resources = useInventoryStore(s => s.resources);
-  const entries = Object.entries(resources).filter(([, count]) => count > 0);
-  if (entries.length === 0) return null;
-
-  return (
-    <div style={{
-      position: 'fixed',
-      top: 80,
-      right: 16,
-      background: 'rgba(0,0,0,0.65)',
-      border: '1px solid rgba(255,255,255,0.15)',
-      borderRadius: 8,
-      padding: '8px 12px',
-      color: '#fff',
-      fontFamily: 'monospace',
-      fontSize: 13,
-      zIndex: 8000,
-      pointerEvents: 'none',
-      backdropFilter: 'blur(4px)',
-      minWidth: 100,
-    }}>
-      <div style={{ fontWeight: 'bold', marginBottom: 4, fontSize: 11, opacity: 0.6 }}>RESOURCES</div>
-      {entries.map(([id, count]) => {
-        const cat = ITEM_CATALOG[id];
-        if (!cat) return null;
-        return (
-          <div key={id} style={{ display: 'flex', justifyContent: 'space-between', gap: 8, marginBottom: 2 }}>
-            <span style={{ color: RARITY_COLORS[cat.rarity] }}>{cat.glyph} {cat.label}</span>
-            <span style={{ fontWeight: 'bold' }}>×{count}</span>
-          </div>
-        );
-      })}
-    </div>
-  );
-}
-
-/* ================================================================
-   Sell Depot — glowing platform near spawn
-   ================================================================ */
-function SellDepot({ groundY }) {
+function SellDepot3D({ groundY }) {
   const meshRef = useRef();
-  const [showUI, setShowUI] = useState(false);
-  const [nearDepot, setNearDepot] = useState(false);
-  const resources = useInventoryStore(s => s.resources);
-  const scBalance = useInventoryStore(s => s.scBalance);
-  const sellAllResources = useInventoryStore(s => s.sellAllResources);
-  const sellAllOfResource = useInventoryStore(s => s.sellAllOfResource);
-
-  const DEPOT_POS = useMemo(() => [30, 0, 30], []);
-  const DEPOT_RANGE = 12;
-
-  // Check player proximity
-  useFrame(() => {
-    const avatar = window.__CF_LOCAL_AVATAR__;
-    if (!avatar) return;
-    const dx = avatar.x - DEPOT_POS[0];
-    const dz = avatar.z - DEPOT_POS[2];
-    const distSq = dx * dx + dz * dz;
-    setNearDepot(distSq < DEPOT_RANGE * DEPOT_RANGE);
-  });
 
   // Animate depot glow
   useFrame(({ clock }) => {
@@ -267,181 +179,44 @@ function SellDepot({ groundY }) {
     meshRef.current.material.emissiveIntensity = 0.3 + Math.sin(t * 2) * 0.15;
   });
 
-  // Key handler for interact
-  useEffect(() => {
-    const onKey = (e) => {
-      if (e.key === 'e' || e.key === 'E') {
-        if (nearDepot) setShowUI(prev => !prev);
-      }
-    };
-    window.addEventListener('keydown', onKey);
-    return () => window.removeEventListener('keydown', onKey);
-  }, [nearDepot]);
-
-  // Close when walking away
-  useEffect(() => {
-    if (!nearDepot && showUI) setShowUI(false);
-  }, [nearDepot, showUI]);
-
-  const totalValue = useMemo(() => {
-    let total = 0;
-    for (const [id, count] of Object.entries(resources)) {
-      if (count <= 0) continue;
-      const cat = ITEM_CATALOG[id];
-      if (cat?.type === 'resource') total += (cat.sellValue || 0) * count;
-    }
-    return total;
-  }, [resources]);
-
   const depotY = getTerrainHeightXZ(DEPOT_POS[0], DEPOT_POS[2]);
 
   return (
-    <>
-      {/* 3D depot marker */}
-      <group position={[DEPOT_POS[0], (groundY || 0) + (depotY > -9000 ? depotY : 0), DEPOT_POS[2]]}>
-        {/* Base platform */}
-        <mesh ref={meshRef} position={[0, 0.3, 0]} receiveShadow>
-          <cylinderGeometry args={[3, 3.5, 0.6, 16]} />
-          <meshStandardMaterial
-            color="#1a1a2e"
-            emissive="#00d4ff"
-            emissiveIntensity={0.3}
-            roughness={0.2}
-            metalness={0.8}
-          />
-        </mesh>
-        {/* Hologram pillar */}
-        <mesh position={[0, 3, 0]}>
-          <cylinderGeometry args={[0.15, 0.15, 5, 8]} />
-          <meshStandardMaterial
-            color="#00d4ff"
-            emissive="#00d4ff"
-            emissiveIntensity={1.5}
-            transparent
-            opacity={0.4}
-          />
-        </mesh>
-        {/* Top beacon */}
-        <pointLight position={[0, 6, 0]} color="#00d4ff" intensity={2} distance={25} decay={2} />
-        <mesh position={[0, 5.5, 0]}>
-          <sphereGeometry args={[0.4, 8, 8]} />
-          <meshStandardMaterial color="#00d4ff" emissive="#00d4ff" emissiveIntensity={2} />
-        </mesh>
-        {/* Label */}
-        <mesh position={[0, 7, 0]} rotation={[0, 0, 0]}>
-          <planeGeometry args={[4, 0.8]} />
-          <meshBasicMaterial transparent opacity={0} />
-        </mesh>
-      </group>
-
-      {/* Proximity prompt */}
-      {nearDepot && !showUI && (
-        <div style={{
-          position: 'fixed',
-          bottom: '22%',
-          left: '50%',
-          transform: 'translateX(-50%)',
-          background: 'rgba(0,0,0,0.75)',
-          border: '1px solid #00d4ff',
-          borderRadius: 8,
-          padding: '8px 18px',
-          color: '#fff',
-          fontFamily: 'monospace',
-          fontSize: 14,
-          textAlign: 'center',
-          pointerEvents: 'none',
-          zIndex: 9000,
-          backdropFilter: 'blur(4px)',
-        }}>
-          <span style={{ color: '#00d4ff', fontWeight: 'bold' }}>📡 SELL DEPOT</span>
-          <br />
-          <span style={{ fontSize: 12, opacity: 0.8 }}>Press <b>E</b> to trade resources</span>
-        </div>
-      )}
-
-      {/* Sell UI overlay */}
-      {showUI && (
-        <div style={{
-          position: 'fixed',
-          top: '50%',
-          left: '50%',
-          transform: 'translate(-50%, -50%)',
-          background: 'rgba(10, 10, 30, 0.95)',
-          border: '1px solid #00d4ff',
-          borderRadius: 12,
-          padding: '24px 32px',
-          color: '#fff',
-          fontFamily: 'monospace',
-          width: 340,
-          zIndex: 10000,
-          backdropFilter: 'blur(8px)',
-        }}>
-          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 16 }}>
-            <h3 style={{ margin: 0, color: '#00d4ff' }}>📡 SELL DEPOT</h3>
-            <span style={{ fontSize: 12, opacity: 0.6 }}>SC Balance: {scBalance}</span>
-          </div>
-
-          {Object.entries(resources).filter(([, c]) => c > 0).length === 0 ? (
-            <p style={{ opacity: 0.5, textAlign: 'center', margin: '20px 0' }}>No resources to sell</p>
-          ) : (
-            <>
-              {Object.entries(resources).filter(([, c]) => c > 0).map(([id, count]) => {
-                const cat = ITEM_CATALOG[id];
-                if (!cat) return null;
-                return (
-                  <div key={id} style={{
-                    display: 'flex', justifyContent: 'space-between', alignItems: 'center',
-                    padding: '6px 0', borderBottom: '1px solid rgba(255,255,255,0.08)',
-                  }}>
-                    <div>
-                      <span style={{ color: RARITY_COLORS[cat.rarity] }}>{cat.glyph} {cat.label}</span>
-                      <span style={{ opacity: 0.5, marginLeft: 6 }}>×{count}</span>
-                    </div>
-                    <div style={{ display: 'flex', gap: 8, alignItems: 'center' }}>
-                      <span style={{ fontSize: 12, color: '#fbbf24' }}>{cat.sellValue * count} SC</span>
-                      <button
-                        onClick={() => sellAllOfResource(id)}
-                        style={{
-                          background: '#00d4ff22', border: '1px solid #00d4ff', color: '#00d4ff',
-                          borderRadius: 4, padding: '2px 8px', cursor: 'pointer', fontSize: 11,
-                          fontFamily: 'monospace',
-                        }}
-                      >Sell</button>
-                    </div>
-                  </div>
-                );
-              })}
-              <div style={{ marginTop: 16, display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                <span style={{ fontSize: 12, color: '#fbbf24' }}>Total: {totalValue} SC</span>
-                <button
-                  onClick={() => sellAllResources()}
-                  style={{
-                    background: '#fbbf2422', border: '1px solid #fbbf24', color: '#fbbf24',
-                    borderRadius: 6, padding: '6px 16px', cursor: 'pointer', fontSize: 13,
-                    fontFamily: 'monospace', fontWeight: 'bold',
-                  }}
-                >Sell All</button>
-              </div>
-            </>
-          )}
-
-          <button
-            onClick={() => setShowUI(false)}
-            style={{
-              marginTop: 16, width: '100%', background: 'rgba(255,255,255,0.05)',
-              border: '1px solid rgba(255,255,255,0.2)', color: '#fff',
-              borderRadius: 6, padding: '6px', cursor: 'pointer', fontSize: 12,
-              fontFamily: 'monospace',
-            }}
-          >Close (E)</button>
-        </div>
-      )}
-    </>
+    <group position={[DEPOT_POS[0], (groundY || 0) + (depotY > -9000 ? depotY : 0), DEPOT_POS[2]]}>
+      {/* Base platform */}
+      <mesh ref={meshRef} position={[0, 0.3, 0]} receiveShadow>
+        <cylinderGeometry args={[3, 3.5, 0.6, 16]} />
+        <meshStandardMaterial
+          color="#1a1a2e"
+          emissive="#00d4ff"
+          emissiveIntensity={0.3}
+          roughness={0.2}
+          metalness={0.8}
+        />
+      </mesh>
+      {/* Hologram pillar */}
+      <mesh position={[0, 3, 0]}>
+        <cylinderGeometry args={[0.15, 0.15, 5, 8]} />
+        <meshStandardMaterial
+          color="#00d4ff"
+          emissive="#00d4ff"
+          emissiveIntensity={1.5}
+          transparent
+          opacity={0.4}
+        />
+      </mesh>
+      {/* Top beacon */}
+      <pointLight position={[0, 6, 0]} color="#00d4ff" intensity={2} distance={25} decay={2} />
+      <mesh position={[0, 5.5, 0]}>
+        <sphereGeometry args={[0.4, 8, 8]} />
+        <meshStandardMaterial color="#00d4ff" emissive="#00d4ff" emissiveIntensity={2} />
+      </mesh>
+    </group>
   );
 }
 
 /* ================================================================
-   Resource Spawner — main export, manages all nodes + pickup logic
+   Resource Spawner — 3D component (inside Canvas)
    ================================================================ */
 export default function ResourceSpawner({ groundY, roomSeed = 42, wsSend }) {
   const addResource = useInventoryStore(s => s.addResource);
@@ -460,10 +235,9 @@ export default function ResourceSpawner({ groundY, roomSeed = 42, wsSend }) {
   const respawnTimers = useRef({});
 
   // Track nearest node for pickup prompt
-  const [nearestNode, setNearestNode] = useState(null);
-  const [nearestDistSq, setNearestDistSq] = useState(Infinity);
+  const nearestRef = useRef({ node: null, distSq: Infinity });
 
-  // Find nearest active node each frame
+  // Find nearest active node each frame & publish to window for HTML overlay
   useFrame(() => {
     const avatar = window.__CF_LOCAL_AVATAR__;
     if (!avatar) return;
@@ -483,8 +257,20 @@ export default function ResourceSpawner({ groundY, roomSeed = 42, wsSend }) {
       }
     }
 
-    setNearestNode(closest);
-    setNearestDistSq(closestDSq);
+    nearestRef.current.node = closest;
+    nearestRef.current.distSq = closestDSq;
+
+    // Check depot proximity
+    const ddx = px - DEPOT_POS[0];
+    const ddz = pz - DEPOT_POS[2];
+    const depotDistSq = ddx * ddx + ddz * ddz;
+
+    // Publish state for HTML overlay
+    window.__CF_RESOURCE_STATE__ = {
+      nearestNode: closest,
+      nearestDistSq: closestDSq,
+      nearDepot: depotDistSq < DEPOT_RANGE * DEPOT_RANGE,
+    };
   });
 
   // Collect a node
@@ -562,56 +348,238 @@ export default function ResourceSpawner({ groundY, roomSeed = 42, wsSend }) {
   useEffect(() => {
     const onKey = (e) => {
       if (e.key === 'e' || e.key === 'E') {
-        if (nearestNode && nearestDistSq < PICKUP_RANGE * PICKUP_RANGE) {
-          collectNode(nearestNode.id);
+        const nr = nearestRef.current;
+        if (nr.node && nr.distSq < PICKUP_RANGE * PICKUP_RANGE) {
+          collectNode(nr.node.id);
         }
       }
     };
     window.addEventListener('keydown', onKey);
     return () => window.removeEventListener('keydown', onKey);
-  }, [nearestNode, nearestDistSq, collectNode]);
-
-  const showPrompt = nearestNode && nearestDistSq < PROMPT_RANGE * PROMPT_RANGE;
-  const inPickupRange = nearestNode && nearestDistSq < PICKUP_RANGE * PICKUP_RANGE;
+  }, [collectNode]);
 
   return (
     <>
-      {/* Render all active resource nodes */}
+      {/* 3D resource node meshes */}
       {Object.values(activeNodes).map(node => (
         <ResourceNode
           key={node.id}
           node={node}
           onCollect={collectNode}
           playerDistSq={
-            nearestNode && nearestNode.id === node.id ? nearestDistSq : Infinity
+            nearestRef.current.node && nearestRef.current.node.id === node.id
+              ? nearestRef.current.distSq : Infinity
           }
         />
       ))}
 
-      {/* Sell Depot */}
-      <SellDepot groundY={groundY} />
+      {/* 3D sell depot meshes */}
+      <SellDepot3D groundY={groundY} />
+    </>
+  );
+}
 
-      {/* Pickup prompt (HTML overlay) */}
-      {showPrompt && inPickupRange && <PickupPrompt node={nearestNode} visible />}
+/* ================================================================
+   Resource Overlays — HTML component (OUTSIDE Canvas)
+   Reads state from window.__CF_RESOURCE_STATE__ set by ResourceSpawner
+   ================================================================ */
+export function ResourceOverlays() {
+  const resources = useInventoryStore(s => s.resources);
+  const scBalance = useInventoryStore(s => s.scBalance);
+  const sellAllResources = useInventoryStore(s => s.sellAllResources);
+  const sellAllOfResource = useInventoryStore(s => s.sellAllOfResource);
+  const [showDepotUI, setShowDepotUI] = useState(false);
+  const [tick, setTick] = useState(0);
+
+  // Poll the window state at ~20fps for prompt updates
+  useEffect(() => {
+    const iv = setInterval(() => setTick(t => t + 1), 50);
+    return () => clearInterval(iv);
+  }, []);
+
+  const state = window.__CF_RESOURCE_STATE__ || {};
+  const nearestNode = state.nearestNode;
+  const nearestDistSq = state.nearestDistSq ?? Infinity;
+  const nearDepot = !!state.nearDepot;
+
+  const showPrompt = nearestNode && nearestDistSq < PROMPT_RANGE * PROMPT_RANGE;
+  const inPickupRange = nearestNode && nearestDistSq < PICKUP_RANGE * PICKUP_RANGE;
+
+  // Depot key handler
+  useEffect(() => {
+    const onKey = (e) => {
+      if (e.key === 'e' || e.key === 'E') {
+        if (nearDepot) setShowDepotUI(prev => !prev);
+      }
+    };
+    window.addEventListener('keydown', onKey);
+    return () => window.removeEventListener('keydown', onKey);
+  }, [nearDepot]);
+
+  // Close depot when walking away
+  useEffect(() => {
+    if (!nearDepot && showDepotUI) setShowDepotUI(false);
+  }, [nearDepot, showDepotUI]);
+
+  const totalValue = useMemo(() => {
+    let total = 0;
+    for (const [id, count] of Object.entries(resources)) {
+      if (count <= 0) continue;
+      const cat = ITEM_CATALOG[id];
+      if (cat?.type === 'resource') total += (cat.sellValue || 0) * count;
+    }
+    return total;
+  }, [resources]);
+
+  // Resource HUD entries
+  const resourceEntries = Object.entries(resources).filter(([, count]) => count > 0);
+
+  return (
+    <>
+      {/* Resource HUD (top-right) */}
+      {resourceEntries.length > 0 && (
+        <div style={{
+          position: 'fixed', top: 80, right: 16,
+          background: 'rgba(0,0,0,0.65)', border: '1px solid rgba(255,255,255,0.15)',
+          borderRadius: 8, padding: '8px 12px', color: '#fff',
+          fontFamily: 'monospace', fontSize: 13, zIndex: 8000,
+          pointerEvents: 'none', backdropFilter: 'blur(4px)', minWidth: 100,
+        }}>
+          <div style={{ fontWeight: 'bold', marginBottom: 4, fontSize: 11, opacity: 0.6 }}>RESOURCES</div>
+          {resourceEntries.map(([id, count]) => {
+            const cat = ITEM_CATALOG[id];
+            if (!cat) return null;
+            return (
+              <div key={id} style={{ display: 'flex', justifyContent: 'space-between', gap: 8, marginBottom: 2 }}>
+                <span style={{ color: RARITY_COLORS[cat.rarity] }}>{cat.glyph} {cat.label}</span>
+                <span style={{ fontWeight: 'bold' }}>×{count}</span>
+              </div>
+            );
+          })}
+        </div>
+      )}
+
+      {/* Pickup prompt — in range */}
+      {showPrompt && inPickupRange && nearestNode && (() => {
+        const catalog = ITEM_CATALOG[nearestNode.resourceId];
+        if (!catalog) return null;
+        return (
+          <div style={{
+            position: 'fixed', bottom: '22%', left: '50%', transform: 'translateX(-50%)',
+            background: 'rgba(0,0,0,0.75)', border: `1px solid ${RARITY_COLORS[catalog.rarity] || '#fff'}`,
+            borderRadius: 8, padding: '8px 18px', color: '#fff',
+            fontFamily: 'monospace', fontSize: 14, textAlign: 'center',
+            pointerEvents: 'none', zIndex: 9000, backdropFilter: 'blur(4px)',
+          }}>
+            <span style={{ color: RARITY_COLORS[catalog.rarity], fontWeight: 'bold' }}>
+              {catalog.glyph} {catalog.label}
+            </span>
+            <span style={{ opacity: 0.7, marginLeft: 8 }}>({catalog.rarity})</span>
+            <br />
+            <span style={{ fontSize: 12, opacity: 0.8 }}>
+              Press <span style={{ fontWeight: 'bold' }}>E</span> to collect • Worth {catalog.sellValue} SC
+            </span>
+          </div>
+        );
+      })()}
+
+      {/* Pickup prompt — nearby but not in range */}
       {showPrompt && !inPickupRange && nearestNode && (
         <div style={{
-          position: 'fixed',
-          bottom: '18%',
-          left: '50%',
-          transform: 'translateX(-50%)',
+          position: 'fixed', bottom: '18%', left: '50%', transform: 'translateX(-50%)',
           color: RARITY_COLORS[ITEM_CATALOG[nearestNode.resourceId]?.rarity] || '#fff',
-          fontFamily: 'monospace',
-          fontSize: 12,
-          opacity: 0.5,
-          pointerEvents: 'none',
-          zIndex: 8500,
+          fontFamily: 'monospace', fontSize: 12, opacity: 0.5,
+          pointerEvents: 'none', zIndex: 8500,
         }}>
           {ITEM_CATALOG[nearestNode.resourceId]?.glyph} nearby...
         </div>
       )}
 
-      {/* Resource HUD */}
-      <ResourceHUD />
+      {/* Depot proximity prompt */}
+      {nearDepot && !showDepotUI && (
+        <div style={{
+          position: 'fixed', bottom: '22%', left: '50%', transform: 'translateX(-50%)',
+          background: 'rgba(0,0,0,0.75)', border: '1px solid #00d4ff',
+          borderRadius: 8, padding: '8px 18px', color: '#fff',
+          fontFamily: 'monospace', fontSize: 14, textAlign: 'center',
+          pointerEvents: 'none', zIndex: 9000, backdropFilter: 'blur(4px)',
+        }}>
+          <span style={{ color: '#00d4ff', fontWeight: 'bold' }}>📡 SELL DEPOT</span>
+          <br />
+          <span style={{ fontSize: 12, opacity: 0.8 }}>
+            Press <span style={{ fontWeight: 'bold' }}>E</span> to trade resources
+          </span>
+        </div>
+      )}
+
+      {/* Sell depot full UI */}
+      {showDepotUI && (
+        <div style={{
+          position: 'fixed', top: '50%', left: '50%', transform: 'translate(-50%, -50%)',
+          background: 'rgba(10, 10, 30, 0.95)', border: '1px solid #00d4ff',
+          borderRadius: 12, padding: '24px 32px', color: '#fff',
+          fontFamily: 'monospace', width: 340, zIndex: 10000, backdropFilter: 'blur(8px)',
+        }}>
+          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 16 }}>
+            <h3 style={{ margin: 0, color: '#00d4ff' }}>📡 SELL DEPOT</h3>
+            <span style={{ fontSize: 12, opacity: 0.6 }}>SC Balance: {scBalance}</span>
+          </div>
+
+          {resourceEntries.length === 0 ? (
+            <p style={{ opacity: 0.5, textAlign: 'center', margin: '20px 0' }}>No resources to sell</p>
+          ) : (
+            <>
+              {resourceEntries.map(([id, count]) => {
+                const cat = ITEM_CATALOG[id];
+                if (!cat) return null;
+                return (
+                  <div key={id} style={{
+                    display: 'flex', justifyContent: 'space-between', alignItems: 'center',
+                    padding: '6px 0', borderBottom: '1px solid rgba(255,255,255,0.08)',
+                  }}>
+                    <div>
+                      <span style={{ color: RARITY_COLORS[cat.rarity] }}>{cat.glyph} {cat.label}</span>
+                      <span style={{ opacity: 0.5, marginLeft: 6 }}>×{count}</span>
+                    </div>
+                    <div style={{ display: 'flex', gap: 8, alignItems: 'center' }}>
+                      <span style={{ fontSize: 12, color: '#fbbf24' }}>{cat.sellValue * count} SC</span>
+                      <button
+                        onClick={() => sellAllOfResource(id)}
+                        style={{
+                          background: '#00d4ff22', border: '1px solid #00d4ff', color: '#00d4ff',
+                          borderRadius: 4, padding: '2px 8px', cursor: 'pointer', fontSize: 11,
+                          fontFamily: 'monospace',
+                        }}
+                      >Sell</button>
+                    </div>
+                  </div>
+                );
+              })}
+              <div style={{ marginTop: 16, display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                <span style={{ fontSize: 12, color: '#fbbf24' }}>Total: {totalValue} SC</span>
+                <button
+                  onClick={() => sellAllResources()}
+                  style={{
+                    background: '#fbbf2422', border: '1px solid #fbbf24', color: '#fbbf24',
+                    borderRadius: 6, padding: '6px 16px', cursor: 'pointer', fontSize: 13,
+                    fontFamily: 'monospace', fontWeight: 'bold',
+                  }}
+                >Sell All</button>
+              </div>
+            </>
+          )}
+
+          <button
+            onClick={() => setShowDepotUI(false)}
+            style={{
+              marginTop: 16, width: '100%', background: 'rgba(255,255,255,0.05)',
+              border: '1px solid rgba(255,255,255,0.2)', color: '#fff',
+              borderRadius: 6, padding: '6px', cursor: 'pointer', fontSize: 12,
+              fontFamily: 'monospace',
+            }}
+          >Close (E)</button>
+        </div>
+      )}
     </>
   );
 }

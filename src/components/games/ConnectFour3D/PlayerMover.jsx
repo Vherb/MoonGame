@@ -1279,12 +1279,24 @@ export function PlayerMover({ firstPersonMode = false, setFirstPersonMode = null
       if (sphereModeRef.current < 0.5 && blend >= 0.5) {
         // ── ENTER sphere physics ──
         sphereModeRef.current = 1;
-        ref.current.position.y = curWy;
+        // Immediately project ref onto the sphere surface so avatar and camera agree on frame 1
+        if (surfData) {
+          ref.current.position.x = surfData.surfacePoint[0] - bx;
+          ref.current.position.y = surfData.surfacePoint[1];
+          ref.current.position.z = surfData.surfacePoint[2] - bz;
+        } else {
+          ref.current.position.y = curWy;
+        }
         const entryJumpY = Math.max(0, distFromSurf);
         setPlatformLift(-localGroundY);
         setJumpY(entryJumpY);
         sphereJumpYRef.current = entryJumpY;            // sync ref (avoids stale React state)
         spherePlatformLiftRef.current = -localGroundY;  // sync ref
+        // Start falling toward the surface
+        if (entryJumpY > 1) {
+          curGravityRef.current = GRAVITY_FALL;
+          if (!isJumping) setIsJumping(true);
+        }
         jumpVyRef.current = jumpVyRef.current; // keep current velocity for smooth transition
       } else if (sphereModeRef.current >= 0.5 && blend < 0.5) {
         // ── EXIT sphere physics ──

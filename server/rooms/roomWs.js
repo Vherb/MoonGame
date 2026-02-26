@@ -347,6 +347,27 @@ function attachHandlers() {
           break;
         }
 
+        /* ---- Building system sync ---- */
+        case 'build_place': {
+          const room = mgr.getRoomByWs(ws);
+          if (!room) break;
+          broadcastRoomExcept(room, ws, {
+            type: 'build_place',
+            piece: data.piece,
+          });
+          break;
+        }
+
+        case 'build_destroy': {
+          const room = mgr.getRoomByWs(ws);
+          if (!room) break;
+          broadcastRoomExcept(room, ws, {
+            type: 'build_destroy',
+            pieceId: data.pieceId,
+          });
+          break;
+        }
+
         case 'cubes_sync': {
           const room = mgr.syncCubes(ws, data.cubes);
           if (!room) break;

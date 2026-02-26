@@ -231,6 +231,22 @@ export const useInventoryStore = create((set, get) => ({
     });
   },
 
+  /** Remove one unit of a resource (for spending, e.g. building) */
+  removeResource: (resourceId) => {
+    const s = get();
+    const count = s.resources[resourceId] || 0;
+    if (count <= 0) return false;
+    set(prev => {
+      const next = {
+        ...prev,
+        resources: { ...prev.resources, [resourceId]: count - 1 },
+      };
+      saveToStorage(next);
+      return next;
+    });
+    return true;
+  },
+
   /** Sell one unit of a resource for SC */
   sellResource: (resourceId) => {
     const catalog = ITEM_CATALOG[resourceId];

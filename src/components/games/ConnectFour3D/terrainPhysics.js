@@ -21,6 +21,12 @@ export function updatePlacedCubesCache(cubes) {
   CURRENT_PLACED_CUBES = cubes || [];
 }
 
+// Building pieces cache (registered by BuildingSystem)
+export let CURRENT_BUILDING_PIECES = [];
+export function updateBuildingPiecesCache(pieces) {
+  CURRENT_BUILDING_PIECES = pieces || [];
+}
+
 // Giant walkable moon sphere (registered by GiantMoonSphere component)
 export let GIANT_MOON_SPHERE = null; // { cx, cy, cz, radius, bumpAt }
 export function setGiantMoonSphere(cfg) { GIANT_MOON_SPHERE = cfg; }
@@ -834,11 +840,51 @@ export function getGroundHeightXZAtY(wx, wz, worldY) {
   }
   
   // On main terrain - use highest surface
-  if (foundGeneratedTerrain) {
-    return Math.max(maxH, terrainHeight, generatedTerrainHeight);
-  }
-  
-  return Math.max(maxH, terrainHeight);
+  let surfaceMax = foundGeneratedTerrain
+    ? Math.max(maxH, terrainHeight, generatedTerrainHeight)
+    : Math.max(maxH, terrainHeight);
+
+  // ── Building pieces: walk on foundations/floors ──
+  try {
+    for (const p of CURRENT_BUILDING_PIECES) {
+      if (!p || !p.type) continue;
+      // Only walkable pieces (foundation, floor, ramp)
+      const w = p.dims?.[0] || 4;
+      const h = p.dims?.[1] || 0.3;
+      const d = p.dims?.[2] || 4;
+      const rot = p.rotation || 0;
+
+      // Transform world coords into piece-local space
+      const dx = wx - p.x;
+      const dz = wz - p.z;
+      const cos = Math.cos(-rot), sin = Math.sin(-rot);
+      const lx = dx * cos - dz * sin;
+      const lz = dx * sin + dz * cos;
+
+      const halfW = w / 2, halfD = d / 2;
+
+      if (p.walkable && p.type !== 'ramp') {
+        // Flat walkable surface (foundation, floor)
+        if (lx >= -halfW && lx <= halfW && lz >= -halfD && lz <= halfD) {
+          const topY = (p.y - groundY) + h; // surface top Y relative to groundY
+          // Only stand on it if player is above or near the top
+          if (worldY === undefined || worldY >= (p.y + h - 2)) {
+            surfaceMax = Math.max(surfaceMax, topY);
+          }
+        }
+      } else if (p.type === 'ramp') {
+        // Ramp: linear interpolation of height along local Z
+        if (lx >= -halfW && lx <= halfW && lz >= -halfD && lz <= halfD) {
+          const t = (lz + halfD) / (halfD * 2); // 0 at back, 1 at front
+          const rampH = t * (p.dims?.[1] || 4);  // ramp height
+          const topY = (p.y - groundY) + rampH;
+          surfaceMax = Math.max(surfaceMax, topY);
+        }
+      }
+    }
+  } catch {}
+
+  return surfaceMax;
 }
 
 // Debug toggle for showing collision boxes - moved to component state (showCollisionMeshes)

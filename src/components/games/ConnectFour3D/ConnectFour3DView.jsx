@@ -57,6 +57,7 @@ import { SettingsMenu } from './SettingsMenu';
 import { CharacterSelectMenu } from './CharacterSelectMenu';
 import { InventoryMenu } from './InventoryMenu';
 import ResourceSpawner, { ResourceOverlays } from './ResourceNodes';
+import BuildingSystem, { BuildingOverlays } from './BuildingSystem';
 
 // Extend Three.js to make postprocessing classes available in JSX
 extend({ EffectComposer, RenderPass, UnrealBloomPass });
@@ -6279,6 +6280,8 @@ function ConnectFour3DView({ board, lastMove, colors, onSelectColumn, flip180 = 
             <LunarTerrain radius={TERRAIN_RADIUS} flatRadius={50} showCollisionBox={showCollisionMeshes} />
             {/* Resource nodes scattered across terrain */}
             <ResourceSpawner groundY={groundY} wsSend={onAvatarMove || null} />
+            {/* Base building system — placed pieces + ghost preview */}
+            <BuildingSystem groundY={groundY} wsSend={onAvatarMove || null} />
             {/* Giant moon sphere hovering off to the side */}
             <GiantMoonSphere position={[8000, 4000, -10000]} radius={2000} />
             {/* Simple staircase you can walk up */}
@@ -6778,6 +6781,9 @@ function ConnectFour3DView({ board, lastMove, colors, onSelectColumn, flip180 = 
 
       {/* Resource gathering overlays (HTML outside Canvas) */}
       <ResourceOverlays />
+
+      {/* Building system overlays (HTML outside Canvas) */}
+      <BuildingOverlays />
 
       {/* ── Weapon Transform Editor (toggle button + panel) ── */}
       {!gunEditorOpen && (

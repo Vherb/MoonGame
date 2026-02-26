@@ -259,6 +259,11 @@ export default function RoomView() {
         window.dispatchEvent(new CustomEvent('ws_resource_msg', { detail: data }));
         break;
 
+      case 'build_place':
+      case 'build_destroy':
+        window.dispatchEvent(new CustomEvent('ws_building_msg', { detail: data }));
+        break;
+
       case 'visualizers_sync':
         if (Array.isArray(data.visualizers)) {
           window.__CF_REMOTE_VISUALIZERS__ = data.visualizers;
@@ -389,6 +394,16 @@ export default function RoomView() {
     // Resource gathering sync
     if (msg && (msg.type === 'resource_collected' || msg.type === 'resource_respawn')) {
       try { ws.send(JSON.stringify({ type: msg.type, nodeId: msg.nodeId })); } catch {}
+      return;
+    }
+
+    // Building system sync
+    if (msg && msg.type === 'build_place') {
+      try { ws.send(JSON.stringify({ type: 'build_place', piece: msg.piece })); } catch {}
+      return;
+    }
+    if (msg && msg.type === 'build_destroy') {
+      try { ws.send(JSON.stringify({ type: 'build_destroy', pieceId: msg.pieceId })); } catch {}
       return;
     }
 

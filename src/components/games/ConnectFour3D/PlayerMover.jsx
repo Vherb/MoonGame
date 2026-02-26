@@ -1280,7 +1280,7 @@ export function PlayerMover({ firstPersonMode = false, setFirstPersonMode = null
         // ── ENTER sphere physics ──
         sphereModeRef.current = 1;
         // Keep ref at the player's CURRENT world position — no teleport.
-        // Just switch Y from flat (0) to world-Y so the 3D position stays identical.
+        // ref.y switches from flat (0) to actual world-Y.
         ref.current.position.y = curWy;
         // jumpY = radial distance from sphere surface (player descends from here)
         const entryJumpY = Math.max(0, distFromSurf);
@@ -1293,7 +1293,7 @@ export function PlayerMover({ firstPersonMode = false, setFirstPersonMode = null
           curGravityRef.current = GRAVITY_FALL;
           if (!isJumping) setIsJumping(true);
         }
-        jumpVyRef.current = jumpVyRef.current; // keep current velocity for smooth transition
+        jumpVyRef.current = jumpVyRef.current; // keep current velocity
       } else if (sphereModeRef.current >= 0.5 && blend < 0.5) {
         // ── EXIT sphere physics ──
         sphereModeRef.current = 0;
@@ -1384,7 +1384,7 @@ export function PlayerMover({ firstPersonMode = false, setFirstPersonMode = null
           const movedY = curWy + ndy * step;
           const movedZ = curWz + ndz * step;
 
-          // Project back onto sphere surface
+          // Project back onto sphere surface, then offset by jumpY along normal
           const pdx = movedX - ms.cx;
           const pdy = movedY - ms.cy;
           const pdz = movedZ - ms.cz;
@@ -1395,13 +1395,11 @@ export function PlayerMover({ firstPersonMode = false, setFirstPersonMode = null
             const pnz = pdz / pDist;
             const bump = sphereBumpAt(pnx, pny, pnz);
             const surfR = ms.radius + bump;
-            // Position ref at surface point (jumpY is handled by avatar's extraLiftY)
-            const newX = ms.cx + pnx * surfR;
-            const newY = ms.cy + pny * surfR;
-            const newZ = ms.cz + pnz * surfR;
-            ref.current.position.x = newX - bx;
-            ref.current.position.y = newY;
-            ref.current.position.z = newZ - bz;
+            // ref = surfacePoint + normal * jumpY (actual 3D position)
+            const jy = sphereJumpYRef.current;
+            ref.current.position.x = (ms.cx + pnx * surfR + pnx * jy) - bx;
+            ref.current.position.y = ms.cy + pny * surfR + pny * jy;
+            ref.current.position.z = (ms.cz + pnz * surfR + pnz * jy) - bz;
           }
         }
 
@@ -1440,7 +1438,7 @@ export function PlayerMover({ firstPersonMode = false, setFirstPersonMode = null
           sphereJumpYRef.current = y;  // sync ref for publish (avoids 1-frame lag)
           if (Math.abs(y - jumpY) > 0.00001) setJumpY(y);
 
-          // Update ref.position for new jumpY
+          // Update ref.position: surfacePoint + normal * jumpY
           const reSurf = getSphereSurfaceData(
             bx + ref.current.position.x,
             ref.current.position.y,
@@ -1449,10 +1447,9 @@ export function PlayerMover({ firstPersonMode = false, setFirstPersonMode = null
           if (reSurf) {
             const rsn = reSurf.surfaceNormal;
             const rsp = reSurf.surfacePoint;
-            // Keep ref at surface point; jumpY offset is handled by avatar extraLiftY
-            ref.current.position.x = rsp[0] - bx;
-            ref.current.position.y = rsp[1];
-            ref.current.position.z = rsp[2] - bz;
+            ref.current.position.x = (rsp[0] + rsn[0] * y) - bx;
+            ref.current.position.y = rsp[1] + rsn[1] * y;
+            ref.current.position.z = (rsp[2] + rsn[2] * y) - bz;
           }
         }
 
@@ -1464,6 +1461,7 @@ export function PlayerMover({ firstPersonMode = false, setFirstPersonMode = null
             bz + ref.current.position.z
           );
           if (reSurf2) {
+            // Grounded: ref = surfacePoint (jumpY ≈ 0)
             ref.current.position.x = reSurf2.surfacePoint[0] - bx;
             ref.current.position.y = reSurf2.surfacePoint[1];
             ref.current.position.z = reSurf2.surfacePoint[2] - bz;
@@ -2759,13 +2757,13 @@ export function PlayerMover({ firstPersonMode = false, setFirstPersonMode = null
   const _sphereOn = sphereModeRef.current >= 0.5;
   const _sphereBlend = sphereBlendRef.current;
   const _sphereUpArr = (_sphereBlend > 0.01) ? [sphereUpRef.current.x, sphereUpRef.current.y, sphereUpRef.current.z] : null;
-  // In sphere mode, compute the player's actual 3D position (surface + jumpY along normal)
-  // Use sphereJumpYRef (synchronous) rather than jumpY (React state, 1 frame behind)
+  // In sphere mode, ref.position IS the actual 3D position (surfacePoint + normal * jumpY).
+  // spherePlayerPos just reads ref directly — no need to add jumpY offset.
   const _sphereJY = _sphereOn ? sphereJumpYRef.current : 0;
   const _spherePlayerPos = _sphereOn ? [
-    wx + sphereUpRef.current.x * _sphereJY,
-    ref.current.position.y + sphereUpRef.current.y * _sphereJY,
-    wz + sphereUpRef.current.z * _sphereJY
+    wx,
+    ref.current.position.y,
+    wz
   ] : null;
   try {
     window.__CF_LOCAL_AVATAR__ = { x: wx, z: wz, yaw: localYaw, isRunning: runningNow, isWalking: !!(isWalking || isWalkingBackward || isStrafeLeft || isStrafeRight), isJumping: !!isJumping, isJetpacking: !!isJetpackingRef.current, jetpackFuel: jetpackFuelRef.current, isBoost: !!jetpackBoostActive, lift: (platformLift + jumpY), jetpackTiltX: jetpackTiltXRef.current, jetpackTiltZ: jetpackTiltZRef.current, isShooting: !!isShootingRef.current, isAiming: aimingNow, isScoping: !!weaponSystem.isAiming, isWalkingBackward, isStrafeLeft, isStrafeRight, isDead: !!weaponSystem.isDead, pitch: window.__CF_CAM_V_ANGLE__ || 0, sphereMode: _sphereOn ? 1 : 0, sphereBlend: _sphereBlend, sphereUp: _sphereUpArr, spherePlayerPos: _spherePlayerPos, sphereGrounded: _sphereOn && _sphereJY < 3 };
@@ -2816,7 +2814,7 @@ export function PlayerMover({ firstPersonMode = false, setFirstPersonMode = null
   const childWithMotion = useMemo(() => {
     const arr = React.Children.toArray(children);
     if (arr.length > 0 && React.isValidElement(arr[0])) {
-      try { arr[0] = React.cloneElement(arr[0], { isWalking, isWalkingBackward, isRunning, isTurningLeft, isTurningRight, isJumping, isJetpacking, isFalling, isShooting: !!isShootingRef.current, isAiming: !!(firstPersonMode || weaponSystem.isAiming || window.__CF_FORCE_AIM__), isStrafeLeft, isStrafeRight, isDead: !!weaponSystem.isDead, jetpackTiltX: jetpackTiltXRef.current, jetpackTiltZ: jetpackTiltZRef.current, extraLiftY: sphereModeRef.current >= 0.5 ? (spherePlatformLiftRef.current + sphereJumpYRef.current) : (platformLift + jumpY), pitch: window.__CF_CAM_V_ANGLE__ || 0 }); } catch {}
+      try { arr[0] = React.cloneElement(arr[0], { isWalking, isWalkingBackward, isRunning, isTurningLeft, isTurningRight, isJumping, isJetpacking, isFalling, isShooting: !!isShootingRef.current, isAiming: !!(firstPersonMode || weaponSystem.isAiming || window.__CF_FORCE_AIM__), isStrafeLeft, isStrafeRight, isDead: !!weaponSystem.isDead, jetpackTiltX: jetpackTiltXRef.current, jetpackTiltZ: jetpackTiltZRef.current, extraLiftY: sphereModeRef.current >= 0.5 ? spherePlatformLiftRef.current : (platformLift + jumpY), pitch: window.__CF_CAM_V_ANGLE__ || 0 }); } catch {}
     }
     // Also adjust the Billboard / name label (idx=1) Y position to follow character lift
     if (arr.length > 1 && React.isValidElement(arr[1])) {

@@ -687,7 +687,7 @@ export function LunarTerrain({ radius = TERRAIN_RADIUS, flatRadius = 50, showCol
       '/textures/lunar_surface.png',
       (texture) => {
         texture.wrapS = texture.wrapT = THREE.RepeatWrapping;
-        texture.repeat.set(8, 8); // Add tiling for sharper detail
+        texture.repeat.set(90, 90); // Scaled tiling for 5000-radius terrain
         texture.anisotropy = 16; // Increase anisotropic filtering for better quality
         texture.needsUpdate = true;
         if (materialRef.current) {
@@ -704,7 +704,7 @@ export function LunarTerrain({ radius = TERRAIN_RADIUS, flatRadius = 50, showCol
   
   // Create terrain geometry with heightmap
   const terrainGeometry = useMemo(() => {
-    const segments = 200; // high resolution for smooth hills
+    const segments = 300; // high resolution for smooth hills
     const size = radius * 2.2;
     const geo = new THREE.PlaneGeometry(size, size, segments, segments);
     
@@ -768,11 +768,11 @@ export function LunarTerrain({ radius = TERRAIN_RADIUS, flatRadius = 50, showCol
         
         // Generate hills using fractal noise - increased height for more dramatic terrain
         const scale = 0.015;
-        const height = fbm(x * scale, z * scale, 4) * 12 * hillFactor; // Increased from 5 to 12
+        const height = fbm(x * scale, z * scale, 4) * 30 * hillFactor; // Dramatic hills for large terrain
         
         // Add some larger mounds
         const moundScale = 0.008;
-        const mounds = fbm(x * moundScale, z * moundScale, 3) * 20 * hillFactor; // Increased from 8 to 20
+        const mounds = fbm(x * moundScale, z * moundScale, 3) * 50 * hillFactor; // Big rolling mounds
         
         // Blend edge smoothly
         const edgeFactor = 1 - Math.max(0, Math.min(1, (distFromCenter - radius * 0.9) / (radius * 0.3)));

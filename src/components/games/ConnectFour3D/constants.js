@@ -9,7 +9,7 @@ export const GAP = 0.1;
 export const BOARD_THICK = 0.22;
 
 // ── Terrain visual size ──
-export const TERRAIN_RADIUS = 450;
+export const TERRAIN_RADIUS = 5000;
 export const PLAY_AREA_RADIUS = 99999;
 
 // ── Staircase 1 (removed from gameplay but constants remain for reference) ──

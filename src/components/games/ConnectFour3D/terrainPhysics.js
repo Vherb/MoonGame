@@ -144,11 +144,11 @@ export function getTerrainHeightXZ(x, z, flatRadius = 50, maxRadius = TERRAIN_RA
   
   // Generate hills using fractal noise - same exact formula as geometry
   const scale = 0.015;
-  const height = fbm(x * scale, z * scale, 4) * 12 * hillFactor; // Increased from 5 to 12
+  const height = fbm(x * scale, z * scale, 4) * 30 * hillFactor; // Dramatic hills for large terrain
   
   // Add some larger mounds
   const moundScale = 0.008;
-  const mounds = fbm(x * moundScale, z * moundScale, 3) * 20 * hillFactor; // Increased from 8 to 20
+  const mounds = fbm(x * moundScale, z * moundScale, 3) * 50 * hillFactor; // Big rolling mounds
   
   // Blend edge smoothly
   const edgeFactor = 1 - Math.max(0, Math.min(1, (distFromCenter - maxRadius * 0.9) / (maxRadius * 0.3)));

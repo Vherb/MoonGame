@@ -326,6 +326,27 @@ function attachHandlers() {
 
         /* ---- Sandbox sync ---- */
 
+        /* ---- Resource gathering sync ---- */
+        case 'resource_collected': {
+          const room = mgr.getRoomByWs(ws);
+          if (!room) break;
+          broadcastRoomExcept(room, ws, {
+            type: 'resource_collected',
+            nodeId: data.nodeId,
+          });
+          break;
+        }
+
+        case 'resource_respawn': {
+          const room = mgr.getRoomByWs(ws);
+          if (!room) break;
+          broadcastRoomExcept(room, ws, {
+            type: 'resource_respawn',
+            nodeId: data.nodeId,
+          });
+          break;
+        }
+
         case 'cubes_sync': {
           const room = mgr.syncCubes(ws, data.cubes);
           if (!room) break;

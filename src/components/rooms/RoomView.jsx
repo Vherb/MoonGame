@@ -254,6 +254,11 @@ export default function RoomView() {
         }
         break;
 
+      case 'resource_collected':
+      case 'resource_respawn':
+        window.dispatchEvent(new CustomEvent('ws_resource_msg', { detail: data }));
+        break;
+
       case 'visualizers_sync':
         if (Array.isArray(data.visualizers)) {
           window.__CF_REMOTE_VISUALIZERS__ = data.visualizers;
@@ -378,6 +383,12 @@ export default function RoomView() {
     // Sound upload notification
     if (msg && msg.type === 'sound_uploaded' && msg.filename) {
       try { ws.send(JSON.stringify({ type: 'sound_uploaded', filename: msg.filename, timestamp: msg.timestamp || Date.now() })); } catch {}
+      return;
+    }
+
+    // Resource gathering sync
+    if (msg && (msg.type === 'resource_collected' || msg.type === 'resource_respawn')) {
+      try { ws.send(JSON.stringify({ type: msg.type, nodeId: msg.nodeId })); } catch {}
       return;
     }
 

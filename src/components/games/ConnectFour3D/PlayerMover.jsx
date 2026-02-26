@@ -32,7 +32,7 @@ export function PlayerMover({ firstPersonMode = false, setFirstPersonMode = null
   const JETPACK_FWD_SPEED_BOOST = 2.5; // max XZ speed multiplier when stick fully forward while flying
   const JETPACK_MAX_FUEL     = 6.0;   // seconds of continuous thrust (unlimited but shown on HUD)
   const JETPACK_RECHARGE_RATE = 2.0;  // fuel/s recharge while grounded
-  const JETPACK_FLY_RADIUS   = 5000;  // expanded boundary while jetpacking
+  const JETPACK_FLY_RADIUS   = 12000; // expanded boundary for large terrain
   const JETPACK_XZ_ACCEL     = 3.5;   // how fast XZ velocity ramps toward target (lower = glidier)
   const JETPACK_XZ_DRAG      = 0.97;  // per-frame momentum retention @60fps (high = more drift)
   const JETPACK_BOOST_MUL    = 3.5;   // L3 super-boost multiplier (~5x walk when combined with forward)

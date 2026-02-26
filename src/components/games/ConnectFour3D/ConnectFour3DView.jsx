@@ -56,6 +56,7 @@ import { PlayerMover } from './PlayerMover';
 import { SettingsMenu } from './SettingsMenu';
 import { CharacterSelectMenu } from './CharacterSelectMenu';
 import { InventoryMenu } from './InventoryMenu';
+import ResourceSpawner from './ResourceNodes';
 
 // Extend Three.js to make postprocessing classes available in JSX
 extend({ EffectComposer, RenderPass, UnrealBloomPass });
@@ -6261,6 +6262,8 @@ function ConnectFour3DView({ board, lastMove, colors, onSelectColumn, flip180 = 
             <StarSwarms maxSwarms={3} basePoints={120} speed={0.55} dir={[1.0, 0.25]} />
             {/* Lunar terrain with hills and mounds - characters walk on the surface */}
             <LunarTerrain radius={TERRAIN_RADIUS} flatRadius={50} showCollisionBox={showCollisionMeshes} />
+            {/* Resource nodes scattered across terrain */}
+            <ResourceSpawner groundY={groundY} wsSend={onAvatarMove || null} />
             {/* Giant moon sphere hovering off to the side */}
             <GiantMoonSphere position={[8000, 4000, -10000]} radius={2000} />
             {/* Simple staircase you can walk up */}

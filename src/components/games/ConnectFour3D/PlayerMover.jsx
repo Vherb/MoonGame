@@ -401,11 +401,12 @@ export function PlayerMover({ firstPersonMode = false, setFirstPersonMode = null
       }
       
       // D-pad Right button (button 15) - horizontal menu navigation when in section, or toggle chat UI
+      // Skip when prop editing
       const dpadRightNow = gamepad.buttons[15]?.pressed || false;
       const dpadRightPressed = dpadRightNow && !gamepadState.current.dpadRight;
       gamepadState.current.dpadRight = dpadRightNow;
       
-      if (dpadRightPressed) {
+      if (dpadRightPressed && !propEditing) {
         // Priority: Sub-menu horizontal navigation
         if (showEditMenu && isInSubMenu && setSelectedSubItemIndex) {
           console.log('D-pad Right pressed in sub-menu! current:', selectedSubItemIndex);
@@ -460,11 +461,13 @@ export function PlayerMover({ firstPersonMode = false, setFirstPersonMode = null
       }
       
       // D-pad Up button (button 12) - menu navigation when edit menu open, camera toggle when closed
+      // Skip when prop is being edited in build mode (SelectedPropGizmo owns D-pad)
+      const propEditing = window.__CF_BUILDING_STATE__?.propEditing || false;
       const dpadUpNow = gamepad.buttons[12]?.pressed || false;
       const dpadUpPressed = dpadUpNow && !gamepadState.current.dpadUp;
       gamepadState.current.dpadUp = dpadUpNow;
       
-      if (dpadUpPressed) {
+      if (dpadUpPressed && !propEditing) {
         // Priority: Sub-menu navigation when in sub-menu
         if (isInSubMenu && setSelectedSubItemIndex) {
           console.log('D-pad Up pressed in sub-menu! current:', selectedSubItemIndex);
@@ -579,11 +582,12 @@ export function PlayerMover({ firstPersonMode = false, setFirstPersonMode = null
       }
       
       // LB (Left Bumper - button 4) to cycle tabs left
+      // Skip when prop is being edited in build mode (SelectedPropGizmo owns LB/RB)
       const lbNow = gamepad.buttons[4]?.pressed || false;
       const lbPressed = lbNow && !gamepadState.current.lb;
       gamepadState.current.lb = lbNow;
       
-      if (lbPressed && setActiveEditorTab && showEditMenu) {
+      if (lbPressed && !propEditing && setActiveEditorTab && showEditMenu) {
         const tabs = ['objects', 'models', 'transform', 'audio', 'settings'];
         const currentIndex = tabs.indexOf(activeEditorTab);
         const newIndex = currentIndex <= 0 ? tabs.length - 1 : currentIndex - 1;
@@ -591,11 +595,12 @@ export function PlayerMover({ firstPersonMode = false, setFirstPersonMode = null
       }
       
       // RB (Right Bumper - button 5) to cycle tabs right
+      // Skip when prop is being edited in build mode
       const rbNow = gamepad.buttons[5]?.pressed || false;
       const rbPressed = rbNow && !gamepadState.current.rb;
       gamepadState.current.rb = rbNow;
       
-      if (rbPressed && setActiveEditorTab && showEditMenu) {
+      if (rbPressed && !propEditing && setActiveEditorTab && showEditMenu) {
         const tabs = ['objects', 'models', 'transform', 'audio', 'settings'];
         const currentIndex = tabs.indexOf(activeEditorTab);
         const newIndex = currentIndex >= tabs.length - 1 ? 0 : currentIndex + 1;
@@ -603,15 +608,16 @@ export function PlayerMover({ firstPersonMode = false, setFirstPersonMode = null
       }
       
       // D-pad Down (button 13) for menu section navigation when edit menu is open
+      // Skip when prop editing
       const dpadDownNow = gamepad.buttons[13]?.pressed || false;
       const dpadDownPressed = dpadDownNow && !gamepadState.current.dpadDown;
       gamepadState.current.dpadDown = dpadDownNow;
       
-      if (dpadDownNow) {
+      if (dpadDownNow && !propEditing) {
         console.log('D-pad Down state:', { dpadDownNow, wasPressedBefore: !dpadDownPressed, dpadDownPressed });
       }
       
-      if (dpadDownPressed) {
+      if (dpadDownPressed && !propEditing) {
         // Priority: Sub-menu navigation when in sub-menu
         if (isInSubMenu && setSelectedSubItemIndex) {
           console.log('D-pad Down pressed in sub-menu! current:', selectedSubItemIndex);
@@ -763,11 +769,12 @@ export function PlayerMover({ firstPersonMode = false, setFirstPersonMode = null
       }
       
       // D-pad Left (button 14) for horizontal item navigation
+      // Skip when prop editing
       const dpadLeftNow = gamepad.buttons[14]?.pressed || false;
       const dpadLeftPressed = dpadLeftNow && !gamepadState.current.dpadLeft;
       gamepadState.current.dpadLeft = dpadLeftNow;
       
-      if (dpadLeftPressed && showEditMenu) {
+      if (dpadLeftPressed && !propEditing && showEditMenu) {
         // Priority: Sub-menu horizontal navigation
         if (isInSubMenu && setSelectedSubItemIndex) {
           console.log('D-pad Left pressed in sub-menu! current:', selectedSubItemIndex);
@@ -821,29 +828,31 @@ export function PlayerMover({ firstPersonMode = false, setFirstPersonMode = null
       gamepadState.current.leftStickClick = gamepad.buttons[10]?.pressed || false;
       
       // Weapon controls - RT (Right Trigger) to shoot, LT (Left Trigger) to aim
+      // Skip when prop is being edited in build mode
       // Right Trigger (button 7 or axis 5) - Shoot
       const rtValue = gamepad.buttons[7]?.value || (gamepad.axes[5] !== undefined ? (gamepad.axes[5] + 1) / 2 : 0);
-      const rtPressed = rtValue > 0.5;
+      const rtPressed = propEditing ? false : rtValue > 0.5;
       gamepadState.current.rtButton = rtPressed;
-      gamepadState.current.rtAnalog = rtValue;
+      gamepadState.current.rtAnalog = propEditing ? 0 : rtValue;
       // RT is always for shooting now (jetpack moved to hold-A/Space)
       jetpackRtAnalogRef.current = 0;
       
       // Left Trigger (button 6 or axis 4) - Aim
+      // Skip aiming when prop is being edited
       const ltValue = gamepad.buttons[6]?.value || (gamepad.axes[4] !== undefined ? (gamepad.axes[4] + 1) / 2 : 0);
-      const ltPressed = ltValue > 0.5;
+      const ltPressed = propEditing ? false : ltValue > 0.5;
       gamepadState.current.ltButton = ltPressed;
-      weaponSystem.setIsAiming(ltPressed);
+      if (!propEditing) weaponSystem.setIsAiming(ltPressed);
       
-      // LB (Left Bumper - button 4) - Previous weapon
-      gamepadState.current.lbButton = gamepad.buttons[4]?.pressed || false;
+      // LB (Left Bumper - button 4) - Previous weapon (skip when prop editing)
+      gamepadState.current.lbButton = propEditing ? false : (gamepad.buttons[4]?.pressed || false);
       
-      // RB (Right Bumper - button 5) - Next weapon
-      gamepadState.current.rbButton = gamepad.buttons[5]?.pressed || false;
+      // RB (Right Bumper - button 5) - Next weapon (skip when prop editing)
+      gamepadState.current.rbButton = propEditing ? false : (gamepad.buttons[5]?.pressed || false);
       
-      // Y button (button 3) - Reload or Exit Vehicle
+      // Y button (button 3) - Reload or Exit Vehicle (skip when prop editing — Y = deselect prop)
       const yButtonNow = gamepad.buttons[3]?.pressed || false;
-      const yButtonPressed = yButtonNow && !gamepadState.current.yButton;
+      const yButtonPressed = propEditing ? false : (yButtonNow && !gamepadState.current.yButton);
       gamepadState.current.yButton = yButtonNow;
       
       // Check if we're in a vehicle and handle exit

@@ -1105,9 +1105,12 @@ export default function BuildingSystem({ groundY, wsSend }) {
       selectedPiece,
       ghostValid: isValid,
       ghostPosition: finalPos,
+      propEditing: !!useBuildingStore.getState().selectedPropId,
     };
 
     // --- Gamepad controls (polled each frame while in build mode) ---
+    // When a prop is selected for transform, SelectedPropGizmo owns D-pad & LB/RB
+    const isPropEditing = !!useBuildingStore.getState().selectedPropId;
     const gamepads = navigator.getGamepads ? navigator.getGamepads() : [];
     const gp = gamepads[0] || gamepads[1] || gamepads[2] || gamepads[3] || null;
     if (gp) {
@@ -1119,7 +1122,7 @@ export default function BuildingSystem({ groundY, wsSend }) {
       const dlBtn = gp.buttons[14]?.pressed || false;
       const drBtn = gp.buttons[15]?.pressed || false;
 
-      // A button — place piece
+      // A button — place piece (still works even while editing a prop)
       if (aBtn && !prev.a) {
         const placed = placePiece('local');
         if (placed && wsSend) {
@@ -1148,14 +1151,17 @@ export default function BuildingSystem({ groundY, wsSend }) {
         }
       }
 
-      // LB — rotate left
-      if (lbBtn && !prev.lb) ghostRotRef.current -= Math.PI / 2;
-      // RB — rotate right
-      if (rbBtn && !prev.rb) ghostRotRef.current += Math.PI / 2;
+      // Skip LB/RB/D-pad when prop is selected — SelectedPropGizmo handles them
+      if (!isPropEditing) {
+        // LB — rotate left
+        if (lbBtn && !prev.lb) ghostRotRef.current -= Math.PI / 2;
+        // RB — rotate right
+        if (rbBtn && !prev.rb) ghostRotRef.current += Math.PI / 2;
 
-      // D-pad Left/Right — cycle piece type
-      if (dlBtn && !prev.dpadLeft)  cyclePiece(-1);
-      if (drBtn && !prev.dpadRight) cyclePiece(1);
+        // D-pad Left/Right — cycle piece type
+        if (dlBtn && !prev.dpadLeft)  cyclePiece(-1);
+        if (drBtn && !prev.dpadRight) cyclePiece(1);
+      }
 
       // Update prev state
       prev.a = aBtn; prev.x = xBtn;

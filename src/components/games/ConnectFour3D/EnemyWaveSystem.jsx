@@ -645,7 +645,7 @@ export default function EnemyWaveManager({ groundY, wsSend }) {
     }
 
     // ── Model turret assembly: turretTop + turretBase paired firing ──
-    const PAIR_TOLERANCE = 3; // XZ distance tolerance for considering top+base as assembled
+    const PAIR_TOLERANCE = 15; // XZ distance tolerance for considering top+base as assembled
     const turretBases = [];
     const turretTops = [];
     for (const p of CURRENT_BUILDING_PIECES) {

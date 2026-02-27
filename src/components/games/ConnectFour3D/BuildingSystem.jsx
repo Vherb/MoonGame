@@ -470,11 +470,13 @@ function TurretTopTracker({ piece, children }) {
       // Smooth lerp toward target rotation
       const current = groupRef.current.rotation.y;
       let diff = desiredY - current;
-      // Normalize to [-PI, PI]
       while (diff > Math.PI) diff -= Math.PI * 2;
       while (diff < -Math.PI) diff += Math.PI * 2;
       const lerpSpeed = 4; // radians/sec convergence
       groupRef.current.rotation.y += diff * Math.min(1, lerpSpeed * delta);
+    } else {
+      // Idle scanning — slow continuous rotation
+      groupRef.current.rotation.y += 0.8 * delta;
     }
   });
 

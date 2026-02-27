@@ -580,12 +580,39 @@ export const useBuildingStore = create((set, get) => ({
       }
     }
 
+    let placeX = s.ghostPosition[0];
+    let placeY = s.ghostPosition[1];
+    let placeZ = s.ghostPosition[2];
+
+    // Auto-snap turretTop onto nearest turretBase
+    if (s.selectedPiece === 'turretTop') {
+      let bestBase = null;
+      let bestDist = 50; // generous search range
+      for (const p of s.pieces) {
+        if (p.type !== 'turretBase') continue;
+        const dx = placeX - p.x;
+        const dz = placeZ - p.z;
+        const dist = Math.sqrt(dx * dx + dz * dz);
+        if (dist < bestDist) {
+          bestDist = dist;
+          bestBase = p;
+        }
+      }
+      if (bestBase) {
+        const baseDef = PIECE_TYPES.turretBase;
+        placeX = bestBase.x;
+        placeZ = bestBase.z;
+        placeY = bestBase.y + (baseDef ? baseDef.dims[1] : 6);
+        console.log('[Turret] Top auto-snapped to base at', placeX, placeZ, 'Y:', placeY);
+      }
+    }
+
     const newPiece = {
       id: nextId++,
       type: s.selectedPiece,
-      x: s.ghostPosition[0],
-      y: s.ghostPosition[1],
-      z: s.ghostPosition[2],
+      x: placeX,
+      y: placeY,
+      z: placeZ,
       rotation: s.ghostRotation,
       health: 100 * (pieceDef.healthMultiplier || 1),
       ownerId,
@@ -603,7 +630,8 @@ export const useBuildingStore = create((set, get) => ({
       const updated = [...prev.pieces, newPiece];
       saveBuilding(updated);
       // Auto-select model props so controller transforms work immediately
-      if (pieceDef.isModel) {
+      // (skip turretTop — it auto-snaps and shouldn't open the gizmo)
+      if (pieceDef.isModel && !pieceDef.isTurretTop) {
         return { pieces: updated, selectedPropId: newPiece.id };
       }
       return { pieces: updated };

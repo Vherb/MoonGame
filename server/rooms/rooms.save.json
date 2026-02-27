@@ -1,5 +1,5 @@
 {
-  "savedAt": 1772178553660,
+  "savedAt": 1772180327835,
   "rooms": [
     {
       "code": "MOON-GXCK",
@@ -8,8 +8,18 @@
       "hostId": 14,
       "hostUsername": "poop",
       "createdAt": 1772137871913,
-      "lastActivity": 1772178553150,
-      "players": [],
+      "lastActivity": 1772180327331,
+      "players": [
+        {
+          "socketId": "85785e78",
+          "userId": 2,
+          "username": "vherb",
+          "character": "astronaut",
+          "avatar": "rocket",
+          "color": "#6366f1",
+          "joinedAt": 1772180325492
+        }
+      ],
       "placedCubes": [],
       "audioVisualizers": [],
       "buildingPieces": [
@@ -613,6 +623,22 @@
             0.13568999999463557,
             0.13568999999463557,
             0.13568999999463557
+          ]
+        },
+        {
+          "id": 187,
+          "type": "modelTable",
+          "x": 545.4924372495606,
+          "y": 12.309263579998674,
+          "z": -4.648778830410949,
+          "rotation": 0,
+          "health": 100,
+          "ownerId": "local",
+          "modelPath": "/models/props/table/table.fbx",
+          "modelScale": [
+            0.08368500000089416,
+            0.08368500000089416,
+            0.08368500000089416
           ]
         }
       ],

@@ -271,7 +271,55 @@ export function getTerrainHeightXZ(x, z, flatRadius = 50, maxRadius = TERRAIN_RA
   const h5 = sampleAt(0, -offset);
   
   // Return max + small bias to keep player above mesh in concave areas
-  return Math.max(h1, h2, h3, h4, h5) + 1.5;
+  const naturalHeight = Math.max(h1, h2, h3, h4, h5) + 1.5;
+
+  // ── Foundation terrain deformation (match visual mesh) ──
+  // Blend terrain height toward foundation surface so physics matches visuals
+  const BLEND_RADIUS = 24;
+  const HALF_G = 16; // GRID_SIZE / 2
+  const fhForGround = ROWS * (CELL + GAP) - GAP + 0.6;
+  const physGroundY = -fhForGround / 2 - GROUND_CLEAR;
+
+  let bestInfluence = 0;
+  let targetFoundationH = naturalHeight;
+
+  for (const f of CURRENT_BUILDING_PIECES) {
+    if (f.type !== 'foundation') continue;
+
+    const cos = Math.cos(f.rotation || 0);
+    const sin = Math.sin(f.rotation || 0);
+    const dx = x - f.x;
+    const dz = z - f.z;
+    const localX = dx * cos + dz * sin;
+    const localZ = -dx * sin + dz * cos;
+
+    const edgeDistX = Math.abs(localX) - HALF_G;
+    const edgeDistZ = Math.abs(localZ) - HALF_G;
+    const edgeDist = Math.max(edgeDistX, edgeDistZ);
+
+    if (edgeDist > BLEND_RADIUS) continue;
+
+    // Foundation surface height relative to groundY
+    const foundationH = f.y - physGroundY;
+
+    let influence;
+    if (edgeDist <= 0) {
+      influence = 1.0;
+    } else {
+      const t = edgeDist / BLEND_RADIUS;
+      influence = 1 - (t * t * (3 - 2 * t));
+    }
+
+    if (influence > bestInfluence) {
+      bestInfluence = influence;
+      targetFoundationH = foundationH;
+    }
+  }
+
+  if (bestInfluence > 0) {
+    return naturalHeight + (targetFoundationH - naturalHeight) * bestInfluence;
+  }
+  return naturalHeight;
 }
 
 // Get terrain height for a generated terrain cube at position (x, z)

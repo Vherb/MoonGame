@@ -347,11 +347,11 @@ function DoorPanel({ piece, wsSend }) {
 
   return (
     <group position={[0, 0, 0]}>
-      {/* Hinge pivot at left edge of door opening */}
-      <group position={[-doorWidth / 2, 0, 0]}>
+      {/* Hinge pivot at left edge of door opening — rotation on this group */}
+      <group position={[-doorWidth / 2, 0, 0]} ref={meshRef}>
+        {/* Door mesh offset so its left edge is at the pivot */}
         <mesh
-          ref={meshRef}
-          position={[doorWidth / 2, doorHeight / 2, 0]}
+          position={[(doorWidth - 0.5) / 2, doorHeight / 2, 0]}
           onClick={handleClick}
           castShadow
           receiveShadow
@@ -780,7 +780,17 @@ export default function BuildingSystem({ groundY, wsSend }) {
       // Snap to grid
       const gridX = Math.round(rawX / GRID_SIZE) * GRID_SIZE;
       const gridZ = Math.round(rawZ / GRID_SIZE) * GRID_SIZE;
-      const gridTerrainY = (groundY || 0) + Math.max(0, getTerrainHeightXZ(gridX, gridZ));
+
+      // Sample terrain height at all 4 corners + center of the foundation footprint
+      // to ensure the slab sits above terrain everywhere
+      const halfG = GRID_SIZE / 2;
+      const hCenter = getTerrainHeightXZ(gridX, gridZ);
+      const hNE = getTerrainHeightXZ(gridX + halfG, gridZ - halfG);
+      const hNW = getTerrainHeightXZ(gridX - halfG, gridZ - halfG);
+      const hSE = getTerrainHeightXZ(gridX + halfG, gridZ + halfG);
+      const hSW = getTerrainHeightXZ(gridX - halfG, gridZ + halfG);
+      const maxTerrainH = Math.max(hCenter, hNE, hNW, hSE, hSW);
+      const gridTerrainY = (groundY || 0) + Math.max(0, maxTerrainH);
 
       finalPos = [gridX, gridTerrainY, gridZ];
       finalRot = currentRot;

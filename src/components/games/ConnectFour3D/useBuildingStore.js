@@ -2,6 +2,8 @@
 // Manages piece types, placed pieces, build mode state, resource costs, and persistence.
 
 import { create } from 'zustand';
+import { getTerrainHeightXZ } from './terrainPhysics';
+import { ROWS, CELL, GAP, GROUND_CLEAR } from './constants';
 
 /* ================================================================
    Building Piece Definitions
@@ -231,11 +233,23 @@ export function getSnapPoints(piece, placedPiece) {
         type: 'ramp',
       });
     }
-    // Adjacent foundations (4 sides)
+    // Adjacent foundations (4 sides) — Y adjusted for terrain at the new location
+    const _fhG = ROWS * (CELL + GAP) - GAP + 0.6;
+    const _groundY = -_fhG / 2 - GROUND_CLEAR;
     for (const d of dirs) {
       const [fx, fz] = rotate(d.lx * 2, d.lz * 2);
+      // Sample terrain at new position's 4 corners + center, take max
+      const halfG = GRID_SIZE / 2;
+      const hC = getTerrainHeightXZ(fx, fz);
+      const hNE = getTerrainHeightXZ(fx + halfG, fz - halfG);
+      const hNW = getTerrainHeightXZ(fx - halfG, fz - halfG);
+      const hSE = getTerrainHeightXZ(fx + halfG, fz + halfG);
+      const hSW = getTerrainHeightXZ(fx - halfG, fz + halfG);
+      const terrainY = _groundY + Math.max(0, Math.max(hC, hNE, hNW, hSE, hSW));
+      // Use the higher of parent Y or terrain Y so foundation doesn't clip
+      const adjY = Math.max(y, terrainY);
       points.push({
-        position: [fx, y, fz],
+        position: [fx, adjY, fz],
         rotation: rotation,
         accepts: ['foundation'],
         type: 'floor',

@@ -6,7 +6,7 @@ import { useFrame, useThree } from '@react-three/fiber';
 import { useTexture, Text, Billboard } from '@react-three/drei';
 import * as THREE from 'three';
 import { TERRAIN_RADIUS, COLS, ROWS, CELL, GAP, GROUND_CLEAR } from './constants';
-import { CURRENT_PLACED_CUBES, getTerrainHeightXZ, setGiantMoonSphere, sphereBumpAt } from './terrainPhysics';
+import { CURRENT_PLACED_CUBES, CURRENT_BUILDING_PIECES, getTerrainHeightXZ, setGiantMoonSphere, sphereBumpAt } from './terrainPhysics';
 export function TerrainSculptor({ enabled, brushSize, strength, placedCubes, onSculpt }) {
   const { camera, raycaster, scene, gl } = useThree();
   const [brushPosition, setBrushPosition] = useState(null);
@@ -679,6 +679,9 @@ export function LunarTerrain({ radius = TERRAIN_RADIUS, flatRadius = 50, showCol
   const fh = ROWS * (CELL + GAP) - GAP + 0.6;
   const groundY = -fh / 2 - GROUND_CLEAR;
   const materialRef = useRef();
+  const geometryRef = useRef();       // ref to the geometry for vertex mutation
+  const originalHeightsRef = useRef(null); // store original Z values (heights) for each vertex
+  const lastFoundationKeyRef = useRef(''); // track when foundations change
   
   // Load lunar surface texture
   useEffect(() => {
@@ -795,6 +798,117 @@ export function LunarTerrain({ radius = TERRAIN_RADIUS, flatRadius = 50, showCol
     geo.computeVertexNormals();
     return geo;
   }, [radius, flatRadius]);
+
+  // Store original heights on first render, and keep geometry ref
+  useEffect(() => {
+    if (!terrainGeometry) return;
+    geometryRef.current = terrainGeometry;
+    const positions = terrainGeometry.attributes.position;
+    const originals = new Float32Array(positions.count);
+    for (let i = 0; i < positions.count; i++) {
+      originals[i] = positions.getZ(i);
+    }
+    originalHeightsRef.current = originals;
+  }, [terrainGeometry]);
+
+  // Terrain deformation: blend terrain up/down to meet foundation piece edges
+  // Polls every 500ms, only re-scans when foundation list changes
+  useEffect(() => {
+    const BLEND_RADIUS = 24; // how far outside the foundation edge the blend extends
+    const GRID = 32; // GRID_SIZE from useBuildingStore
+    const HALF_G = GRID / 2;
+    const size = radius * 2.2;
+    const segments = 500;
+    const cellSize = size / segments; // world units per vertex cell
+
+    const deformTerrain = () => {
+      const geo = geometryRef.current;
+      const originals = originalHeightsRef.current;
+      if (!geo || !originals) return;
+
+      // Get foundations from the module-level cache
+      const foundations = (CURRENT_BUILDING_PIECES || []).filter(p => p.type === 'foundation');
+
+      // Build a key to detect changes
+      const key = foundations.map(f => `${f.id}:${f.x}:${f.y}:${f.z}:${f.rotation}`).join('|');
+      if (key === lastFoundationKeyRef.current) return; // no change
+      lastFoundationKeyRef.current = key;
+
+      const positions = geo.attributes.position;
+
+      // Reset all heights to original first
+      for (let i = 0; i < positions.count; i++) {
+        positions.setZ(i, originals[i]);
+      }
+
+      if (foundations.length === 0) {
+        positions.needsUpdate = true;
+        geo.computeVertexNormals();
+        return;
+      }
+
+      // For each vertex, check all foundations and find the strongest influence
+      for (let i = 0; i < positions.count; i++) {
+        const vx = positions.getX(i);           // world X
+        const vz = -positions.getY(i);          // world Z (PlaneGeometry Y → -Z when rotated)
+        const naturalH = originals[i];          // original terrain height (relative to groundY)
+
+        let bestInfluence = 0;
+        let targetH = naturalH;
+
+        for (const f of foundations) {
+          const cos = Math.cos(f.rotation || 0);
+          const sin = Math.sin(f.rotation || 0);
+
+          // Transform vertex into foundation's local space
+          const dx = vx - f.x;
+          const dz = vz - f.z;
+          const localX = dx * cos + dz * sin;
+          const localZ = -dx * sin + dz * cos;
+
+          // Distance from foundation footprint edge (signed: negative = inside)
+          const edgeDistX = Math.abs(localX) - HALF_G;
+          const edgeDistZ = Math.abs(localZ) - HALF_G;
+          const edgeDist = Math.max(edgeDistX, edgeDistZ); // positive = outside, negative = inside
+
+          if (edgeDist > BLEND_RADIUS) continue; // too far, no effect
+
+          // Foundation surface height relative to groundY
+          const foundationH = f.y - groundY;
+
+          let influence;
+          if (edgeDist <= 0) {
+            // Inside the foundation footprint — full influence
+            influence = 1.0;
+          } else {
+            // Blend zone: smoothstep from 1 to 0 over BLEND_RADIUS
+            const t = edgeDist / BLEND_RADIUS;
+            // Smooth hermite: 1 - (3t² - 2t³)
+            influence = 1 - (t * t * (3 - 2 * t));
+          }
+
+          if (influence > bestInfluence) {
+            bestInfluence = influence;
+            targetH = foundationH;
+          }
+        }
+
+        if (bestInfluence > 0) {
+          // Lerp between natural height and foundation height
+          const blended = naturalH + (targetH - naturalH) * bestInfluence;
+          positions.setZ(i, blended);
+        }
+      }
+
+      positions.needsUpdate = true;
+      geo.computeVertexNormals();
+    };
+
+    // Poll for changes every 500ms
+    deformTerrain(); // run immediately
+    const iv = setInterval(deformTerrain, 500);
+    return () => clearInterval(iv);
+  }, [radius, groundY]);
   
   return (
     <group position={[0, groundY, 0]}>

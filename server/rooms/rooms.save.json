@@ -1,5 +1,5 @@
 {
-  "savedAt": 1772166422030,
+  "savedAt": 1772168138854,
   "rooms": [
     {
       "code": "MOON-GXCK",
@@ -8,25 +8,16 @@
       "hostId": 14,
       "hostUsername": "poop",
       "createdAt": 1772137871913,
-      "lastActivity": 1772166421529,
+      "lastActivity": 1772168138343,
       "players": [
         {
-          "socketId": "c9b513b1",
+          "socketId": "2c0af269",
           "userId": 2,
           "username": "vherb",
           "character": "astronaut",
           "avatar": "rocket",
           "color": "#6366f1",
-          "joinedAt": 1772165257434
-        },
-        {
-          "socketId": "4afbf566",
-          "userId": 14,
-          "username": "poop",
-          "character": "astronaut",
-          "avatar": "rocket",
-          "color": "#6366f1",
-          "joinedAt": 1772165264077
+          "joinedAt": 1772168069646
         }
       ],
       "placedCubes": [],
@@ -425,6 +416,24 @@
           "tiltZ": 0,
           "pitch": 0,
           "lift": 3.952626337638532
+        },
+        "2c0af269": {
+          "x": -194.9925766644946,
+          "z": -601.846482335306,
+          "yaw": -2.2711877422278293,
+          "run": true,
+          "isJumping": false,
+          "isJetpacking": false,
+          "isShooting": false,
+          "isAiming": false,
+          "isWalkingBackward": false,
+          "isStrafeLeft": false,
+          "isStrafeRight": false,
+          "isDead": false,
+          "tiltX": 0,
+          "tiltZ": 0,
+          "pitch": 0.4263018919945833,
+          "lift": 19.219432491908787
         }
       },
       "games": []

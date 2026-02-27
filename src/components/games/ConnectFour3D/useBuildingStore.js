@@ -207,9 +207,9 @@ export const PIECE_TYPES = {
     isTurretTop: true,
     modelPath: '/models/props/guns/lazer_turret/top/Meshy_AI_Azure_Voyager_0227064824_texture.fbx',
     defaultScale: [0.08, 0.08, 0.08],
-    turretRange: 80,
-    turretDamage: 10,
-    turretFireRate: 1.5,
+    turretRange: 200,
+    turretDamage: 50,
+    turretFireRate: 0.8,
   },
 
   /* ── Model-based props ─────────────────────────────────── */

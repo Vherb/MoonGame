@@ -396,8 +396,19 @@ function ModelPieceInner({ piece, isDeleteTarget }) {
         group.add(mesh);
       }
     });
+    // Auto-center turret pieces so they sit centered on the snap point
+    if (def && (def.isTurretBase || def.isTurretTop)) {
+      const box = new THREE.Box3().setFromObject(group);
+      const center = box.getCenter(new THREE.Vector3());
+      group.children.forEach(child => {
+        child.position.x -= center.x;
+        child.position.z -= center.z;
+        // Only center Y for turretTop (base sits on ground)
+        if (def.isTurretTop) child.position.y -= center.y;
+      });
+    }
     return group;
-  }, [fbx, piece.id]);
+  }, [fbx, piece.id, def]);
 
   // Apply delete-target tint via emissive
   useEffect(() => {
@@ -464,9 +475,10 @@ function TurretTopTracker({ piece, children }) {
     const target = targets && targets[piece.id];
     if (target) {
       // Calculate desired Y rotation to face target
+      // Subtract PI/2 to compensate for model's forward being along X-axis
       const dx = target.x - piece.x;
       const dz = target.z - piece.z;
-      const desiredY = Math.atan2(dx, dz);
+      const desiredY = Math.atan2(dx, dz) - Math.PI / 2;
       // Smooth lerp toward target rotation
       const current = groupRef.current.rotation.y;
       let diff = desiredY - current;

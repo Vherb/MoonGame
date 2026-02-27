@@ -357,27 +357,55 @@ function EnemyMesh({ enemy, clone, walkClips, runClips }) {
 /* ================================================================
    Turret Projectile visual
    ================================================================ */
-function TurretBeam({ from, to, color = '#ff4400' }) {
-  const ref = useRef();
+function TurretBeam({ from, to, color = '#0088ff' }) {
+  const meshRef = useRef();
+  const glowRef = useRef();
 
   useFrame(() => {
-    if (!ref.current) return;
-    // Fade out quickly
-    if (ref.current.material) {
-      ref.current.material.opacity = Math.max(0, ref.current.material.opacity - 0.05);
+    if (meshRef.current && meshRef.current.material) {
+      meshRef.current.material.opacity = Math.max(0, meshRef.current.material.opacity - 0.03);
+    }
+    if (glowRef.current && glowRef.current.material) {
+      glowRef.current.material.opacity = Math.max(0, glowRef.current.material.opacity - 0.04);
     }
   });
 
-  const geo = useMemo(() => {
-    const pts = [new THREE.Vector3(...from), new THREE.Vector3(...to)];
-    return new THREE.BufferGeometry().setFromPoints(pts);
+  const { position, quaternion, length } = useMemo(() => {
+    const a = new THREE.Vector3(...from);
+    const b = new THREE.Vector3(...to);
+    const mid = a.clone().add(b).multiplyScalar(0.5);
+    const dir = b.clone().sub(a);
+    const len = dir.length();
+    const quat = new THREE.Quaternion();
+    // Cylinder is Y-aligned by default, orient it along the beam direction
+    const up = new THREE.Vector3(0, 1, 0);
+    quat.setFromUnitVectors(up, dir.normalize());
+    return { position: mid, quaternion: quat, length: len };
   }, [from, to]);
 
   return (
-    <line ref={ref}>
-      <primitive object={geo} attach="geometry" />
-      <lineBasicMaterial color={color} transparent opacity={0.9} linewidth={2} />
-    </line>
+    <group>
+      {/* Core beam — thick bright cylinder */}
+      <mesh ref={meshRef} position={position} quaternion={quaternion}>
+        <cylinderGeometry args={[0.6, 0.6, length, 8, 1]} />
+        <meshBasicMaterial color={color} transparent opacity={0.95} toneMapped={false} />
+      </mesh>
+      {/* Outer glow */}
+      <mesh ref={glowRef} position={position} quaternion={quaternion}>
+        <cylinderGeometry args={[1.4, 1.4, length, 8, 1]} />
+        <meshBasicMaterial color={'#00ccff'} transparent opacity={0.3} toneMapped={false} />
+      </mesh>
+      {/* Muzzle flash */}
+      <mesh position={from}>
+        <sphereGeometry args={[1.5, 8, 6]} />
+        <meshBasicMaterial color={'#00ddff'} transparent opacity={0.7} toneMapped={false} />
+      </mesh>
+      {/* Impact flash */}
+      <mesh position={to}>
+        <sphereGeometry args={[1.2, 8, 6]} />
+        <meshBasicMaterial color={'#ffffff'} transparent opacity={0.6} toneMapped={false} />
+      </mesh>
+    </group>
   );
 }
 
@@ -404,11 +432,11 @@ export default function EnemyWaveManager({ groundY, wsSend }) {
   const [turretBeams, setTurretBeams] = useState([]);
   const turretCooldowns = useRef({}); // { pieceId: lastFireTime }
   
-  // Load enemy FBX model
-  const enemyFBX = useFBX('/models/props/baddie/Warrior_Ink_1020205248_texture.fbx');
+  // Load enemy FBX model — attack robot NPC with walking animations
+  const enemyFBX = useFBX('/models/avatars/NPCs/attackrobot/Meshy_AI_attack_npc_0227063610_texture.fbx');
 
-  // Load walk/run animation clips from astronaut (Mixamo rig) — retargeted onto warrior skeleton
-  const walkFBX = useFBX('/models/avatars/astronaut/Walking.fbx');
+  // Load walk animation from attack robot's own animation file
+  const walkFBX = useFBX('/models/avatars/NPCs/attackrobot/animations/Walking.fbx');
   const runFBX  = useFBX('/models/avatars/astronaut/Running.fbx');
   const walkClips = useMemo(() => (walkFBX?.animations || []), [walkFBX]);
   const runClips  = useMemo(() => (runFBX?.animations  || []), [runFBX]);
@@ -694,13 +722,27 @@ export default function EnemyWaveManager({ groundY, wsSend }) {
         turretTargets[top.id] = { x: bestEnemy.x, y: bestEnemy.y, z: bestEnemy.z };
       }
 
-      // Fire if off cooldown and target acquired
+      // Fire if off cooldown and target acquired — dual beams side by side
       if (bestEnemy && (now - lastFire >= tFireRate)) {
         bestEnemy.hp -= tDamage;
         turretCooldowns.current[top.id] = now;
+        // Calculate perpendicular offset for dual barrels
+        const ddx = bestEnemy.x - top.x;
+        const ddz = bestEnemy.z - top.z;
+        const dist2D = Math.sqrt(ddx * ddx + ddz * ddz) || 1;
+        const perpX = -ddz / dist2D * 1.5; // 1.5 units apart
+        const perpZ =  ddx / dist2D * 1.5;
+        // Left barrel
         beamsThisFrame.push({
-          id: `${top.id}-${now}`,
-          from: [top.x, turretY, top.z],
+          id: `${top.id}-L-${now}`,
+          from: [top.x + perpX, turretY, top.z + perpZ],
+          to: [bestEnemy.x, bestEnemy.y + ENEMY_HEIGHT / 2, bestEnemy.z],
+          time: now,
+        });
+        // Right barrel
+        beamsThisFrame.push({
+          id: `${top.id}-R-${now}`,
+          from: [top.x - perpX, turretY, top.z - perpZ],
           to: [bestEnemy.x, bestEnemy.y + ENEMY_HEIGHT / 2, bestEnemy.z],
           time: now,
         });

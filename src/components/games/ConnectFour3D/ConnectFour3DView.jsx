@@ -58,6 +58,8 @@ import { SettingsMenu } from './SettingsMenu';
 import { CharacterSelectMenu } from './CharacterSelectMenu';
 import { InventoryMenu } from './InventoryMenu';
 import ResourceSpawner, { ResourceOverlays } from './ResourceNodes';
+import MineableAsteroidSpawner, { MiningOverlays } from './MineableAsteroids';
+import EnemyWaveManager, { WaveOverlays } from './EnemyWaveSystem';
 import BuildingSystem, { BuildingOverlays } from './BuildingSystem';
 
 // Extend Three.js to make postprocessing classes available in JSX
@@ -5847,9 +5849,15 @@ function ConnectFour3DView({ board, lastMove, colors, onSelectColumn, flip180 = 
             <LunarTerrain radius={TERRAIN_RADIUS} flatRadius={50} showCollisionBox={showCollisionMeshes} />
             {/* Resource nodes scattered across terrain */}
             <ResourceSpawner groundY={groundY} wsSend={onAvatarMove || null} />
+            {/* Mineable asteroid deposits */}
+            <MineableAsteroidSpawner groundY={groundY} roomSeed={42} wsSend={onAvatarMove || null} />
             {/* Base building system — placed pieces + ghost preview */}
             <Suspense fallback={null}>
               <BuildingSystem groundY={groundY} wsSend={onAvatarMove || null} />
+            </Suspense>
+            {/* PvE enemy wave defense system */}
+            <Suspense fallback={null}>
+              <EnemyWaveManager groundY={groundY} wsSend={onAvatarMove || null} />
             </Suspense>
             {/* Giant moon sphere hovering off to the side */}
             <GiantMoonSphere position={[8000, 4000, -10000]} radius={2000} />
@@ -6351,8 +6359,14 @@ function ConnectFour3DView({ board, lastMove, colors, onSelectColumn, flip180 = 
       {/* Resource gathering overlays (HTML outside Canvas) */}
       <ResourceOverlays />
 
+      {/* Mining progress overlays (HTML outside Canvas) */}
+      <MiningOverlays />
+
       {/* Building system overlays (HTML outside Canvas) */}
       <BuildingOverlays />
+
+      {/* Wave defense overlays (HTML outside Canvas) */}
+      <WaveOverlays />
 
       {/* ── Weapon Transform Editor (toggle button + panel) ── */}
       {!gunEditorOpen && (

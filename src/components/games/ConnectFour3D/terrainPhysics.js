@@ -98,6 +98,50 @@ export function checkBuildingWallCollision(wx, wz, feetY, playerHeight = 14, col
   return false;
 }
 
+/**
+ * Check if a player's head at (wx, wz, headY) hits the underside of any
+ * walkable building piece (foundation, floor, spikeTrap).  Returns the
+ * lowest ceiling Y found, or Infinity if no ceiling above.
+ */
+export function checkBuildingCeilingCollision(wx, wz, headY, collisionRadius = 2) {
+  let lowestCeiling = Infinity;
+  for (const p of CURRENT_BUILDING_PIECES) {
+    if (!p || !p.walkable) continue; // only walkable pieces act as ceilings
+    if (p.type === 'ramp') continue;  // ramps don't have a flat ceiling face
+
+    const w = p.dims?.[0] || 4;
+    const h = p.dims?.[1] || 0.3;
+    const d = p.dims?.[2] || 4;
+    const rot = p.rotation || 0;
+    const py = p.y || 0; // piece base Y (absolute world Y)
+
+    const ceilingBottom = py;          // underside of the piece
+    const ceilingTop    = py + h;      // top surface (walkable)
+
+    // Only care about pieces whose underside is near/above the player's head
+    // and that the head is actually trying to penetrate (head >= ceilingBottom)
+    if (headY < ceilingBottom - 1) continue;  // head well below — no collision
+    if (headY > ceilingTop + 2) continue;      // head well above — already on top
+
+    // Transform player world coords into piece-local space
+    const dx = wx - p.x;
+    const dz = wz - p.z;
+    const cosR = Math.cos(-rot), sinR = Math.sin(-rot);
+    const lx = dx * cosR - dz * sinR;
+    const lz = dx * sinR + dz * cosR;
+
+    const halfW = w / 2 + collisionRadius;
+    const halfD = d / 2 + collisionRadius;
+
+    if (lx >= -halfW && lx <= halfW && lz >= -halfD && lz <= halfD) {
+      if (ceilingBottom < lowestCeiling) {
+        lowestCeiling = ceilingBottom;
+      }
+    }
+  }
+  return lowestCeiling;
+}
+
 // Giant walkable moon sphere (registered by GiantMoonSphere component)
 export let GIANT_MOON_SPHERE = null; // { cx, cy, cz, radius, bumpAt }
 export function setGiantMoonSphere(cfg) { GIANT_MOON_SPHERE = cfg; }

@@ -13,7 +13,7 @@ import {
   STAIR3_POS_X, STAIR3_POS_Z, STAIR3_BASE_Y, STAIR3_WIDTH, STAIR3_RUN, STAIR3_RISE, STAIR3_STEPS,
   STAIR3_PLATFORM_DEPTH, STAIR3_PLATFORM_WIDTH,
 } from './constants';
-import { getGroundHeightXZAtY, buildStairAABBsWorld, getTerrainHeightXZ, CURRENT_PLACED_CUBES, GIANT_MOON_SPHERE, getSphereSurfaceData, sphereBumpAt, checkBuildingWallCollision } from './terrainPhysics';
+import { getGroundHeightXZAtY, buildStairAABBsWorld, getTerrainHeightXZ, CURRENT_PLACED_CUBES, GIANT_MOON_SPHERE, getSphereSurfaceData, sphereBumpAt, checkBuildingWallCollision, checkBuildingCeilingCollision } from './terrainPhysics';
 import { useWeaponSystem } from './useWeaponSystem';
 import { FootstepAudio } from './audioComponents';
 import { useInventoryStore } from './useInventoryStore';
@@ -1862,8 +1862,10 @@ export function PlayerMover({ firstPersonMode = false, setFirstPersonMode = null
   const allowRectPass = onTable || ((platformLift + jumpY) >= (tableTopLift * 0.6));
       const feetYForWall = localGroundY + platformLift + jumpY;
       const shouldBlock = (xw, zw) => {
-        // Skip all collisions while jetpacking (fly over everything)
-        if (isJetpackingRef.current) return false;
+        // During jetpack flight: skip stair/table collisions but still check building walls
+        if (isJetpackingRef.current) {
+          return checkBuildingWallCollision(xw, zw, feetYForWall, 14, collisionRadius);
+        }
         const hit = intersectsAny(xw, zw);
         if (hit.stair || (hit.rect && !allowRectPass)) return true;
         // Building wall collision — block movement through non-walkable building pieces
@@ -2544,9 +2546,37 @@ export function PlayerMover({ firstPersonMode = false, setFirstPersonMode = null
         const lerpFactor = Math.min(1, JETPACK_XZ_ACCEL * dt);
         jetpackVxRef.current *= (1 - lerpFactor);
         jetpackVzRef.current *= (1 - lerpFactor);
-        // Apply drift position
+        // Apply drift position with building wall collision
         let driftNx = ref.current.position.x + jetpackVxRef.current * dt;
         let driftNz = ref.current.position.z + jetpackVzRef.current * dt;
+        // Building wall collision during drift
+        const driftFeetY = localGroundY + platformLift + jumpY;
+        const driftWxTry = driftNx + (baseOffset?.[0] || 0);
+        const driftWzTry = driftNz + (baseOffset?.[1] || 0);
+        if (checkBuildingWallCollision(driftWxTry, driftWzTry, driftFeetY, 14, collisionRadius)) {
+          // Try sliding along each axis independently
+          const driftWxZ = ref.current.position.x + (baseOffset?.[0] || 0);
+          const driftNzOnly = ref.current.position.z + jetpackVzRef.current * dt;
+          const driftWzZ = driftNzOnly + (baseOffset?.[1] || 0);
+          if (!checkBuildingWallCollision(driftWxZ, driftWzZ, driftFeetY, 14, collisionRadius)) {
+            driftNx = ref.current.position.x;
+            driftNz = driftNzOnly;
+          } else {
+            const driftNxOnly = ref.current.position.x + jetpackVxRef.current * dt;
+            const driftWxX = driftNxOnly + (baseOffset?.[0] || 0);
+            const driftWzX = ref.current.position.z + (baseOffset?.[1] || 0);
+            if (!checkBuildingWallCollision(driftWxX, driftWzX, driftFeetY, 14, collisionRadius)) {
+              driftNx = driftNxOnly;
+              driftNz = ref.current.position.z;
+            } else {
+              // Fully blocked — kill drift velocity
+              driftNx = ref.current.position.x;
+              driftNz = ref.current.position.z;
+              jetpackVxRef.current = 0;
+              jetpackVzRef.current = 0;
+            }
+          }
+        }
         // Boundary clamp
         const driftWx = driftNx + (baseOffset?.[0] || 0);
         const driftWz = driftNz + (baseOffset?.[1] || 0);
@@ -2601,6 +2631,23 @@ export function PlayerMover({ firstPersonMode = false, setFirstPersonMode = null
       let y = jumpY + vy * dt;
       // Absolute height above ground plane
       let absY = platformLift + y;
+
+      // ── Building ceiling collision (prevents flying through floors/foundations) ──
+      if (isJetpackingRef.current && vy > 0) {
+        const PLAYER_HEIGHT_CEIL = 14;
+        const headWorldY = localGroundY + committedLift + y + PLAYER_HEIGHT_CEIL;
+        const ceilingY = checkBuildingCeilingCollision(wxNow, wzNow, headWorldY, collisionRadius);
+        if (ceilingY < Infinity) {
+          // Head hit a ceiling — clamp so head sits just below
+          const maxY = (ceilingY - localGroundY - committedLift - PLAYER_HEIGHT_CEIL) - 0.5;
+          if (y > maxY) {
+            y = maxY;
+            vy = 0; // kill upward momentum
+            absY = committedLift + y;
+          }
+        }
+      }
+
       // Handle landing on tabletop if descending and near/below plane (with snap band to be forgiving)
   const TABLE_SNAP_BAND = 8.0; // allow fast descents to snap reliably
       if (!onTable && overlapsTable && vy < 0 && absY <= (tableTopLift + TABLE_SNAP_BAND)) {

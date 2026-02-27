@@ -418,6 +418,9 @@ export const useInventoryStore = create((set, get) => ({
   /** Set SC balance (for syncing from server) */
   setSCBalance: (bal) => set({ scBalance: bal }),
 
+  /** Add SC to balance (rewards, wave bonuses) */
+  addSC: (amount) => set(prev => ({ scBalance: prev.scBalance + amount })),
+
   /** Load resources + SC from server DB. Can be called multiple times. */
   loadFromServer: async (force = false) => {
     if (get()._serverLoaded && !force) return;

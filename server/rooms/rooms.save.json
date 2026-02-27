@@ -1,5 +1,5 @@
 {
-  "savedAt": 1772168627050,
+  "savedAt": 1772170167821,
   "rooms": [
     {
       "code": "MOON-GXCK",
@@ -8,16 +8,16 @@
       "hostId": 14,
       "hostUsername": "poop",
       "createdAt": 1772137871913,
-      "lastActivity": 1772168626541,
+      "lastActivity": 1772170167320,
       "players": [
         {
-          "socketId": "5df86915",
+          "socketId": "5e7142f1",
           "userId": 2,
           "username": "vherb",
           "character": "astronaut",
           "avatar": "rocket",
           "color": "#6366f1",
-          "joinedAt": 1772168626541
+          "joinedAt": 1772170167320
         }
       ],
       "placedCubes": [],
@@ -340,6 +340,126 @@
           "y": 12.602863579903302,
           "z": 0,
           "rotation": 0,
+          "health": 100,
+          "ownerId": "local"
+        },
+        {
+          "id": 139,
+          "type": "fence",
+          "x": 496,
+          "y": 43.8028635799033,
+          "z": 32,
+          "rotation": 4.71238898038469,
+          "health": 100,
+          "ownerId": "local"
+        },
+        {
+          "id": 140,
+          "type": "fence",
+          "x": 496,
+          "y": 43.80286357990331,
+          "z": 0,
+          "rotation": -1.5707963267948966,
+          "health": 100,
+          "ownerId": "local"
+        },
+        {
+          "id": 141,
+          "type": "fence",
+          "x": 496,
+          "y": 43.80286357990331,
+          "z": -32,
+          "rotation": -1.5707963267948966,
+          "health": 100,
+          "ownerId": "local"
+        },
+        {
+          "id": 142,
+          "type": "fence",
+          "x": 512,
+          "y": 43.80286357990331,
+          "z": -48,
+          "rotation": 0,
+          "health": 100,
+          "ownerId": "local"
+        },
+        {
+          "id": 143,
+          "type": "fence",
+          "x": 544,
+          "y": 43.80286357990331,
+          "z": -48,
+          "rotation": 0,
+          "health": 100,
+          "ownerId": "local"
+        },
+        {
+          "id": 144,
+          "type": "fence",
+          "x": 576,
+          "y": 43.80286357990331,
+          "z": -48,
+          "rotation": 0,
+          "health": 100,
+          "ownerId": "local"
+        },
+        {
+          "id": 145,
+          "type": "fence",
+          "x": 592,
+          "y": 43.80286357990331,
+          "z": -32,
+          "rotation": 1.5707963267948966,
+          "health": 100,
+          "ownerId": "local"
+        },
+        {
+          "id": 146,
+          "type": "fence",
+          "x": 592,
+          "y": 43.80286357990331,
+          "z": 0,
+          "rotation": 1.5707963267948966,
+          "health": 100,
+          "ownerId": "local"
+        },
+        {
+          "id": 147,
+          "type": "fence",
+          "x": 592,
+          "y": 43.80286357990331,
+          "z": 32,
+          "rotation": 1.5707963267948966,
+          "health": 100,
+          "ownerId": "local"
+        },
+        {
+          "id": 148,
+          "type": "fence",
+          "x": 576,
+          "y": 43.80286357990331,
+          "z": 48,
+          "rotation": 3.141592653589793,
+          "health": 100,
+          "ownerId": "local"
+        },
+        {
+          "id": 149,
+          "type": "fence",
+          "x": 544,
+          "y": 43.80286357990331,
+          "z": 48,
+          "rotation": 3.141592653589793,
+          "health": 100,
+          "ownerId": "local"
+        },
+        {
+          "id": 150,
+          "type": "fence",
+          "x": 512,
+          "y": 43.8028635799033,
+          "z": 48,
+          "rotation": 3.141592653589793,
           "health": 100,
           "ownerId": "local"
         }

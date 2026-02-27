@@ -223,7 +223,7 @@ function retargetClip(clip, boneMap, prefix) {
 /* ================================================================
    Single Enemy mesh (3D) — with real walking animation
    ================================================================ */
-function EnemyMesh({ enemy, clone, walkClips, runClips }) {
+function EnemyMesh({ enemy, clone, walkClips }) {
   const groupRef = useRef();
   const hpBarRef = useRef();
   const mixerRef = useRef(null);
@@ -236,59 +236,29 @@ function EnemyMesh({ enemy, clone, walkClips, runClips }) {
 
     const mixer = new THREE.AnimationMixer(clone);
     mixerRef.current = mixer;
-    const boneMap = buildBoneMap(clone);
 
-    // === Walk animation ===
-    // 1) Try direct clip first (same-rig animation — no retarget needed)
-    if (walkClips && walkClips.length > 0 && !actionsRef.current.walk) {
+    // === Idle animation (embedded in Idle.fbx model) ===
+    const embeddedClips = clone.animations;
+    if (embeddedClips && embeddedClips.length > 0) {
+      const idleAction = mixer.clipAction(embeddedClips[0]);
+      idleAction.setLoop(THREE.LoopRepeat);
+      actionsRef.current.idle = idleAction;
+    }
+
+    // === Walk animation (from separate Walking.fbx) ===
+    if (walkClips && walkClips.length > 0) {
       try {
-        const directAction = mixer.clipAction(walkClips[0]);
-        directAction.setLoop(THREE.LoopRepeat);
-        // Test if the clip actually binds to bones (non-zero bound count)
-        actionsRef.current.walk = directAction;
+        const walkAction = mixer.clipAction(walkClips[0]);
+        walkAction.setLoop(THREE.LoopRepeat);
+        actionsRef.current.walk = walkAction;
       } catch {}
     }
-    // 2) Fallback: retarget if direct didn't bind properly
-    if (!actionsRef.current.walk && walkClips && walkClips.length > 0) {
-      const retargeted = retargetClip(walkClips[0], boneMap, 'walk');
-      if (retargeted && retargeted.tracks.length > 0) {
-        const action = mixer.clipAction(retargeted);
-        action.setLoop(THREE.LoopRepeat);
-        actionsRef.current.walk = action;
-      }
-    }
 
-    // === Run animation ===
-    if (runClips && runClips.length > 0 && !actionsRef.current.run) {
-      try {
-        const directAction = mixer.clipAction(runClips[0]);
-        directAction.setLoop(THREE.LoopRepeat);
-        actionsRef.current.run = directAction;
-      } catch {}
-    }
-    if (!actionsRef.current.run && runClips && runClips.length > 0) {
-      const retargeted = retargetClip(runClips[0], boneMap, 'run');
-      if (retargeted && retargeted.tracks.length > 0) {
-        const action = mixer.clipAction(retargeted);
-        action.setLoop(THREE.LoopRepeat);
-        actionsRef.current.run = action;
-      }
-    }
-
-    // 3) Fallback: try model's own embedded animations
-    if (!actionsRef.current.walk && !actionsRef.current.run) {
-      const embeddedClips = clone.animations;
-      if (embeddedClips && embeddedClips.length > 0) {
-        const action = mixer.clipAction(embeddedClips[0]);
-        action.setLoop(THREE.LoopRepeat);
-        actionsRef.current.walk = action;
-      }
-    }
-
-    // Start walking
-    if (actionsRef.current.walk) {
-      actionsRef.current.walk.play();
-      currentAction.current = actionsRef.current.walk;
+    // Start with walk since enemies spawn moving toward base
+    const startAction = actionsRef.current.walk || actionsRef.current.idle;
+    if (startAction) {
+      startAction.play();
+      currentAction.current = startAction;
       prevState.current = 'walking';
     }
 
@@ -298,7 +268,7 @@ function EnemyMesh({ enemy, clone, walkClips, runClips }) {
       actionsRef.current = {};
       currentAction.current = null;
     };
-  }, [clone, walkClips, runClips]);
+  }, [clone, walkClips]);
 
   useFrame((_, dt) => {
     if (!groupRef.current) return;
@@ -321,13 +291,13 @@ function EnemyMesh({ enemy, clone, walkClips, runClips }) {
     if (state !== prevState.current) {
       prevState.current = state;
       const actions = actionsRef.current;
+      // Walking → walk anim, Attacking → idle anim (standing still hitting)
       const nextAction = state === 'attacking'
-        ? (actions.run || actions.walk)
-        : actions.walk;
+        ? (actions.idle || actions.walk)
+        : (actions.walk || actions.idle);
       if (nextAction && nextAction !== currentAction.current) {
         if (currentAction.current) currentAction.current.fadeOut(0.25);
         nextAction.reset().fadeIn(0.25).play();
-        nextAction.timeScale = state === 'attacking' ? 1.6 : 1.0;
         currentAction.current = nextAction;
       }
     }
@@ -450,14 +420,12 @@ export default function EnemyWaveManager({ groundY, wsSend }) {
   const [turretBeams, setTurretBeams] = useState([]);
   const turretCooldowns = useRef({}); // { pieceId: lastFireTime }
   
-  // Load enemy FBX model — attack robot NPC with walking animations
-  const enemyFBX = useFBX('/models/avatars/NPCs/attackrobot/Meshy_AI_attack_npc_0227063610_texture.fbx');
+  // Load enemy FBX model — use Idle.fbx which has the rigged skin + idle anim
+  const enemyFBX = useFBX('/models/avatars/NPCs/attackrobot/Idle.fbx');
 
   // Load walk animation from attack robot's own animation file
   const walkFBX = useFBX('/models/avatars/NPCs/attackrobot/animations/Walking.fbx');
-  const runFBX  = useFBX('/models/avatars/astronaut/Running.fbx');
   const walkClips = useMemo(() => (walkFBX?.animations || []), [walkFBX]);
-  const runClips  = useMemo(() => (runFBX?.animations  || []), [runFBX]);
   
   // Clone pool
   const clonePool = useRef({});
@@ -826,7 +794,6 @@ export default function EnemyWaveManager({ groundY, wsSend }) {
           enemy={enemy}
           clone={getClone(enemy.id)}
           walkClips={walkClips}
-          runClips={runClips}
         />
       ))}
       {/* Turret beam visuals */}

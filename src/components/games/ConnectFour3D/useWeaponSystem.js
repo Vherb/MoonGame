@@ -225,6 +225,29 @@ export function useWeaponSystem({
     // Remove bullet regardless of hit type
     removeBullet(id);
 
+    // --- Enemy hit (PvE) — damage already applied via window.__CF_ENEMY_BULLET_HITS__ ---
+    if (ud.isEnemy) {
+      // Show hit marker
+      const markerId = `hit_${Date.now()}_${Math.random()}`;
+      setHitMarkers(prev => [...prev, {
+        id: markerId,
+        offsetX: (Math.random() - 0.5) * 20,
+        offsetY: (Math.random() - 0.5) * 20
+      }]);
+      setTimeout(() => setHitMarkers(prev => prev.filter(m => m.id !== markerId)), 500);
+
+      // Impact spark at hit point
+      if (point) {
+        const impactId = `impact_${Date.now()}_${Math.random()}`;
+        setImpacts(prev => {
+          const next = [...prev, { id: impactId, position: [point.x, point.y, point.z], color: '#ff8800', type: 'enemy' }];
+          return next.length > 8 ? next.slice(-8) : next;
+        });
+        setTimeout(() => setImpacts(prev => prev.filter(i => i.id !== impactId)), 600);
+      }
+      return;
+    }
+
     // --- Player hit ---
     if (ud.isPlayer) {
       // Add hit marker "✕" at screen center

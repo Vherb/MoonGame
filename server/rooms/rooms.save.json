@@ -1,5 +1,5 @@
 {
-  "savedAt": 1772170167821,
+  "savedAt": 1772178553660,
   "rooms": [
     {
       "code": "MOON-GXCK",
@@ -8,18 +8,8 @@
       "hostId": 14,
       "hostUsername": "poop",
       "createdAt": 1772137871913,
-      "lastActivity": 1772170167320,
-      "players": [
-        {
-          "socketId": "5e7142f1",
-          "userId": 2,
-          "username": "vherb",
-          "character": "astronaut",
-          "avatar": "rocket",
-          "color": "#6366f1",
-          "joinedAt": 1772170167320
-        }
-      ],
+      "lastActivity": 1772178553150,
+      "players": [],
       "placedCubes": [],
       "audioVisualizers": [],
       "buildingPieces": [
@@ -462,6 +452,168 @@
           "rotation": 3.141592653589793,
           "health": 100,
           "ownerId": "local"
+        },
+        {
+          "id": 151,
+          "type": "foundation",
+          "x": 448,
+          "y": 8.18093500662334,
+          "z": -96,
+          "rotation": 0,
+          "health": 100,
+          "ownerId": "local"
+        },
+        {
+          "id": 152,
+          "type": "foundation",
+          "x": 480,
+          "y": 8.18093500662334,
+          "z": -128,
+          "rotation": 0,
+          "health": 100,
+          "ownerId": "local"
+        },
+        {
+          "id": 153,
+          "type": "foundation",
+          "x": 448,
+          "y": 8.18093500662334,
+          "z": -128,
+          "rotation": 0,
+          "health": 100,
+          "ownerId": "local"
+        },
+        {
+          "id": 154,
+          "type": "turret",
+          "x": 448,
+          "y": 9.38093500662334,
+          "z": -128,
+          "rotation": 0,
+          "health": 100,
+          "ownerId": "local"
+        },
+        {
+          "id": 155,
+          "type": "turret",
+          "x": 480,
+          "y": 9.38093500662334,
+          "z": -128,
+          "rotation": 0,
+          "health": 100,
+          "ownerId": "local"
+        },
+        {
+          "id": 156,
+          "type": "spikeTrap",
+          "x": 448,
+          "y": 9.38093500662334,
+          "z": -96,
+          "rotation": 0,
+          "health": 100,
+          "ownerId": "local"
+        },
+        {
+          "id": 164,
+          "type": "turret",
+          "x": 608,
+          "y": 11.402863579903302,
+          "z": -64,
+          "rotation": 4.71238898038469,
+          "health": 100,
+          "ownerId": "local"
+        },
+        {
+          "id": 165,
+          "type": "turret",
+          "x": 448,
+          "y": 12.450210250770725,
+          "z": 64,
+          "rotation": 4.71238898038469,
+          "health": 100,
+          "ownerId": "local"
+        },
+        {
+          "id": 166,
+          "type": "turret",
+          "x": 512,
+          "y": 14.324599526845523,
+          "z": 128,
+          "rotation": 4.71238898038469,
+          "health": 100,
+          "ownerId": "local"
+        },
+        {
+          "id": 167,
+          "type": "turret",
+          "x": 512,
+          "y": 43.80286357990331,
+          "z": -32,
+          "rotation": 0,
+          "health": 100,
+          "ownerId": "local"
+        },
+        {
+          "id": 168,
+          "type": "turret",
+          "x": 544,
+          "y": 43.80286357990331,
+          "z": -32,
+          "rotation": 0,
+          "health": 100,
+          "ownerId": "local"
+        },
+        {
+          "id": 169,
+          "type": "turret",
+          "x": 512,
+          "y": 43.8028635799033,
+          "z": 32,
+          "rotation": 3.141592653589793,
+          "health": 100,
+          "ownerId": "local"
+        },
+        {
+          "id": 170,
+          "type": "turret",
+          "x": 544,
+          "y": 43.80286357990331,
+          "z": 32,
+          "rotation": 0,
+          "health": 100,
+          "ownerId": "local"
+        },
+        {
+          "id": 175,
+          "type": "modelAsteroid",
+          "x": 160,
+          "y": -28.674152620825488,
+          "z": -64,
+          "rotation": -2.8104000007510175,
+          "health": 100,
+          "ownerId": "local",
+          "modelPath": "/models/props/asteroid/asteroid.fbx",
+          "modelScale": [
+            0.06445000000298023,
+            0.06445000000298023,
+            0.06445000000298023
+          ]
+        },
+        {
+          "id": 182,
+          "type": "modelAsteroid",
+          "x": 544.4974510967465,
+          "y": 4.714638827746666,
+          "z": -118.52325499153878,
+          "rotation": 0,
+          "health": 100,
+          "ownerId": "local",
+          "modelPath": "/models/props/asteroid/asteroid.fbx",
+          "modelScale": [
+            0.13568999999463557,
+            0.13568999999463557,
+            0.13568999999463557
+          ]
         }
       ],
       "avatarPositions": {

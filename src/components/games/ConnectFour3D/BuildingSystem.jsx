@@ -451,6 +451,41 @@ const ModelPiece = React.memo(function ModelPiece({ piece, isDeleteTarget }) {
 });
 
 /* ================================================================
+   TurretTopTracker — wrapper that rotates turretTop toward its target
+   Reads from window.__CF_TURRET_TARGETS__[pieceId] published by EnemyWaveSystem.
+   Smoothly lerps Y-rotation toward the enemy when one is in range.
+   ================================================================ */
+function TurretTopTracker({ piece, children }) {
+  const groupRef = useRef();
+
+  useFrame((_, delta) => {
+    if (!groupRef.current) return;
+    const targets = window.__CF_TURRET_TARGETS__;
+    const target = targets && targets[piece.id];
+    if (target) {
+      // Calculate desired Y rotation to face target
+      const dx = target.x - piece.x;
+      const dz = target.z - piece.z;
+      const desiredY = Math.atan2(dx, dz);
+      // Smooth lerp toward target rotation
+      const current = groupRef.current.rotation.y;
+      let diff = desiredY - current;
+      // Normalize to [-PI, PI]
+      while (diff > Math.PI) diff -= Math.PI * 2;
+      while (diff < -Math.PI) diff += Math.PI * 2;
+      const lerpSpeed = 4; // radians/sec convergence
+      groupRef.current.rotation.y += diff * Math.min(1, lerpSpeed * delta);
+    }
+  });
+
+  return (
+    <group ref={groupRef} position={[piece.x, piece.y, piece.z]}>
+      {children}
+    </group>
+  );
+}
+
+/* ================================================================
    PlacedPiece — single rendered building piece (3D mesh)
    Wrapped in React.memo to avoid re-rendering ALL pieces when one is added/removed.
    ================================================================ */
@@ -463,18 +498,31 @@ const PlacedPiece = React.memo(function PlacedPiece({ piece, isDeleteTarget, tex
   if (def.isModel) {
     // When this prop is selected, SelectedPropGizmo renders the live copy — hide this static one
     if (selectedPropId === piece.id) return null;
+
+    const clickHandler = (e) => {
+      e.stopPropagation();
+      const state = useBuildingStore.getState();
+      if (state.buildMode) {
+        state.setSelectedProp(state.selectedPropId === piece.id ? null : piece.id);
+      }
+    };
+
+    // turretTop pieces get wrapped in TurretTopTracker for live target-tracking rotation
+    if (def.isTurretTop) {
+      return (
+        <TurretTopTracker piece={piece}>
+          <group onClick={clickHandler}>
+            <ModelPiece piece={piece} isDeleteTarget={isDeleteTarget} />
+          </group>
+        </TurretTopTracker>
+      );
+    }
+
     return (
       <group
         position={[piece.x, piece.y, piece.z]}
         rotation={[0, piece.rotation || 0, 0]}
-        onClick={(e) => {
-          e.stopPropagation();
-          const state = useBuildingStore.getState();
-          if (state.buildMode) {
-            // Toggle selection: click to select, click again to deselect
-            state.setSelectedProp(state.selectedPropId === piece.id ? null : piece.id);
-          }
-        }}
+        onClick={clickHandler}
       >
         <ModelPiece piece={piece} isDeleteTarget={isDeleteTarget} />
       </group>

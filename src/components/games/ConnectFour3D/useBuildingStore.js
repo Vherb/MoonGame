@@ -177,6 +177,41 @@ export const PIECE_TYPES = {
     turretFireRate: 1.5, // seconds between shots
   },
 
+  /* ── Model turret (two-piece assembly) ──────────────────── */
+  turretBase: {
+    id: 'turretBase',
+    label: 'Turret Base',
+    glyph: '🔧',
+    description: 'Bottom half of laser turret. Place the top to activate.',
+    dims: [8, 6, 8],
+    cost: {},
+    color: '#3A6B8C',
+    snapType: 'prop',
+    walkable: false,
+    isModel: true,
+    isTurretBase: true,
+    modelPath: '/models/props/guns/lazer_turret/bottom/Meshy_AI_Azure_Sentinel_0227064808_texture.fbx',
+    defaultScale: [0.08, 0.08, 0.08],
+  },
+  turretTop: {
+    id: 'turretTop',
+    label: 'Turret Top',
+    glyph: '🎯',
+    description: 'Top half of laser turret. Snaps onto a Turret Base to fire.',
+    dims: [6, 5, 6],
+    cost: {},
+    color: '#4A9BCC',
+    snapType: 'turretTop',
+    walkable: false,
+    isModel: true,
+    isTurretTop: true,
+    modelPath: '/models/props/guns/lazer_turret/top/Meshy_AI_Azure_Voyager_0227064824_texture.fbx',
+    defaultScale: [0.08, 0.08, 0.08],
+    turretRange: 80,
+    turretDamage: 10,
+    turretFireRate: 1.5,
+  },
+
   /* ── Model-based props ─────────────────────────────────── */
   modelRocket: {
     id: 'modelRocket',
@@ -282,6 +317,8 @@ export const PIECE_TYPES = {
 export const PIECE_ORDER = [
   'foundation', 'wall', 'wallDoor', 'wallWindow', 'floor', 'ramp',
   'halfWall', 'fence', 'reinforcedWall', 'spikeTrap', 'chest', 'lightPost', 'turret',
+  // Model turret (two-piece)
+  'turretBase', 'turretTop',
   // Model props
   'modelRocket', 'modelLaunchPad', 'modelRover', 'modelTable', 'modelAsteroid', 'modelJetRocket', 'modelCustom',
   'demolish',
@@ -386,8 +423,20 @@ export function getSnapPoints(piece, placedPiece) {
       position: [x, y + FLOOR_THICKNESS, z],
       rotation: rotation,
       accepts: ['chest', 'lightPost', 'turret', 'spikeTrap',
-        ...Object.keys(PIECE_TYPES).filter(k => PIECE_TYPES[k].isModel)],
+        ...Object.keys(PIECE_TYPES).filter(k => PIECE_TYPES[k].isModel && !PIECE_TYPES[k].isTurretTop)],
       type: 'prop',
+    });
+  }
+
+  // Turret base exposes a snap point on top for the turret top piece
+  const placedDef = PIECE_TYPES[piece];
+  if (placedDef && placedDef.isTurretBase) {
+    const baseTopY = y + placedDef.dims[1]; // top of base model
+    points.push({
+      position: [x, baseTopY, z],
+      rotation: rotation,
+      accepts: ['turretTop'],
+      type: 'turretTop',
     });
   }
 

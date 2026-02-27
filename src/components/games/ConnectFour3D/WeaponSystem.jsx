@@ -139,6 +139,37 @@ export function Bullet({
     // Skip raycasting for bullets high in the sky (no targets up there)
     const bulletY = ref.current.position.y;
     if (bulletY < 150) {
+      // ── Check enemy proximity (distance-based, using published enemy positions) ──
+      const enemies = window.__CF_ENEMIES__;
+      if (enemies && enemies.length > 0) {
+        const bp = ref.current.position;
+        for (const e of enemies) {
+          const dx = bp.x - e.x;
+          const dy = bp.y - (e.y + e.height * 0.5);
+          const dz = bp.z - e.z;
+          const distSq = dx * dx + dy * dy + dz * dz;
+          const hitRadius = (e.radius || 4) + 1.0;
+          if (distSq < hitRadius * hitRadius) {
+            dead.current = true;
+            // Push to the global enemy hit queue consumed by EnemyWaveSystem
+            if (!window.__CF_ENEMY_BULLET_HITS__) window.__CF_ENEMY_BULLET_HITS__ = [];
+            window.__CF_ENEMY_BULLET_HITS__.push({ enemyId: e.id, damage });
+            // Also fire onHit so bullet visuals (impact spark) appear
+            if (onHit) {
+              onHit({
+                id,
+                point: bp.clone(),
+                hitObject: { userData: { isEnemy: true, enemyId: e.id } },
+                normal: new THREE.Vector3(0, 1, 0),
+                damage,
+                ownerId,
+              });
+            }
+            return;
+          }
+        }
+      }
+
       const allTargets = getHitTargets(scene);
       if (allTargets.length > 0) {
         raycaster.set(ref.current.position, dirNorm);

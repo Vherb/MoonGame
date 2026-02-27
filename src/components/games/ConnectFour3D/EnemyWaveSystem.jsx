@@ -7,7 +7,7 @@
 //  • EnemyWaveManager (default) → 3D enemy meshes + turret projectiles (Canvas)
 //  • WaveOverlays (named)       → HTML HUD for wave countdown, wave cleared (outside Canvas)
 
-import React, { useRef, useMemo, useState, useCallback, useEffect } from 'react';
+import React, { useRef, useMemo, useState, useCallback, useEffect, useLayoutEffect } from 'react';
 import * as THREE from 'three';
 import { useFrame } from '@react-three/fiber';
 import { useFBX } from '@react-three/drei';
@@ -120,6 +120,7 @@ function createEnemy(waveNum) {
     deathTimer: 0,
     attackTimer: 0,
     rotY: angle + Math.PI, // face toward center initially
+    state: 'walking', // 'walking' | 'attacking' | 'idle'
   };
 }
 
@@ -143,28 +144,185 @@ function findNearestBuildingPiece(ex, ez) {
 }
 
 /* ================================================================
-   Single Enemy mesh (3D)
+   Cross-rig animation retargeting (Mixamo → any humanoid skeleton)
+   
+   The Walking.fbx / Running.fbx from the astronaut use Mixamo bone
+   names like "mixamorigHips", "mixamorigLeftUpLeg", etc.
+   The warrior model from Meshy uses different names.  We strip the
+   "mixamorig" prefix and do fuzzy matching so e.g. animation track
+   "mixamorigHips.quaternion" matches target bone "Hips" or "hips".
    ================================================================ */
-function EnemyMesh({ enemy, clone }) {
+function buildBoneMap(model) {
+  const map = new Map();
+  if (!model) return map;
+  try {
+    model.traverse(o => {
+      if (o && (o.isBone || o.type === 'Bone')) {
+        const n = String(o.name || '');
+        // Normalise: lowercase, strip non-alnum
+        const key = n.toLowerCase().replace(/[^a-z0-9]/g, '');
+        map.set(key, n);
+      }
+    });
+  } catch {}
+  return map;
+}
+
+/** Strip common rig prefixes from a bone name before lookup */
+function normaliseBoneName(name) {
+  let n = name.toLowerCase().replace(/[^a-z0-9]/g, '');
+  // Strip Mixamo prefix
+  if (n.startsWith('mixamorig')) n = n.substring('mixamorig'.length);
+  // Strip "bip01" or "bip001" prefixes (3ds Max)
+  if (n.startsWith('bip01'))  n = n.substring(5);
+  if (n.startsWith('bip001')) n = n.substring(6);
+  return n;
+}
+
+function retargetClip(clip, boneMap, prefix) {
+  if (!clip || !clip.tracks) return null;
+
+  // Build the reverse lookup: normalised-without-prefix → actual target bone name
+  // We normalise both sides the same way so "mixamorigHips" and "Hips" both become "hips"
+  const strippedMap = new Map();
+  for (const [key, actualName] of boneMap.entries()) {
+    const stripped = normaliseBoneName(actualName);
+    if (!strippedMap.has(stripped)) strippedMap.set(stripped, actualName);
+  }
+
+  const newTracks = [];
+  for (const tr of clip.tracks) {
+    const nm = String(tr.name || '');
+    const dotIdx = nm.indexOf('.');
+    if (dotIdx < 0) continue;
+    const nodeName = nm.substring(0, dotIdx);
+    const prop = nm.substring(dotIdx); // e.g. ".quaternion"
+
+    // Skip position tracks — keeps animation in-place
+    if (prop === '.position') continue;
+
+    const stripped = normaliseBoneName(nodeName);
+    const targetBone = strippedMap.get(stripped);
+    if (targetBone) {
+      // Remap track to target bone name
+      newTracks.push(new tr.constructor(
+        `${targetBone}${prop}`,
+        tr.times.slice(),
+        tr.values.slice(),
+      ));
+    }
+    // If no match, still include the track (it might match by original name)
+    else {
+      newTracks.push(tr);
+    }
+  }
+  if (newTracks.length === 0) return null;
+  return new THREE.AnimationClip(`${prefix}:${clip.name || 'clip'}`, clip.duration, newTracks);
+}
+
+/* ================================================================
+   Single Enemy mesh (3D) — with real walking animation
+   ================================================================ */
+function EnemyMesh({ enemy, clone, walkClips, runClips }) {
   const groupRef = useRef();
   const hpBarRef = useRef();
+  const mixerRef = useRef(null);
+  const actionsRef = useRef({});
+  const currentAction = useRef(null);
+  const prevState = useRef('');
 
-  useFrame(() => {
+  useLayoutEffect(() => {
+    if (!clone) return;
+
+    const mixer = new THREE.AnimationMixer(clone);
+    mixerRef.current = mixer;
+    const boneMap = buildBoneMap(clone);
+
+    // Try retargeting the walk animation
+    if (walkClips && walkClips.length > 0) {
+      const retargeted = retargetClip(walkClips[0], boneMap, 'walk');
+      if (retargeted && retargeted.tracks.length > 0) {
+        const action = mixer.clipAction(retargeted);
+        action.setLoop(THREE.LoopRepeat);
+        actionsRef.current.walk = action;
+      }
+    }
+    // Try retargeting the run animation
+    if (runClips && runClips.length > 0) {
+      const retargeted = retargetClip(runClips[0], boneMap, 'run');
+      if (retargeted && retargeted.tracks.length > 0) {
+        const action = mixer.clipAction(retargeted);
+        action.setLoop(THREE.LoopRepeat);
+        actionsRef.current.run = action;
+      }
+    }
+
+    // Fallback: try model's own embedded animations
+    if (!actionsRef.current.walk && !actionsRef.current.run) {
+      const embeddedClips = clone.animations;
+      if (embeddedClips && embeddedClips.length > 0) {
+        const action = mixer.clipAction(embeddedClips[0]);
+        action.setLoop(THREE.LoopRepeat);
+        actionsRef.current.walk = action;
+      }
+    }
+
+    // Start walking
+    if (actionsRef.current.walk) {
+      actionsRef.current.walk.play();
+      currentAction.current = actionsRef.current.walk;
+      prevState.current = 'walking';
+    }
+
+    return () => {
+      mixer.stopAllAction();
+      mixerRef.current = null;
+      actionsRef.current = {};
+      currentAction.current = null;
+    };
+  }, [clone, walkClips, runClips]);
+
+  useFrame((_, dt) => {
     if (!groupRef.current) return;
     groupRef.current.position.set(enemy.x, enemy.y, enemy.z);
     groupRef.current.rotation.y = enemy.rotY;
 
     // Death fade
-    if (enemy.dead && groupRef.current) {
+    if (enemy.dead) {
       const scale = Math.max(0, 1 - enemy.deathTimer * 2);
       groupRef.current.scale.setScalar(scale * ENEMY_MODEL_SCALE);
+      if (mixerRef.current && currentAction.current) {
+        currentAction.current.fadeOut(0.3);
+        currentAction.current = null;
+      }
+      return;
     }
 
-    // HP bar width
+    // Switch animation based on state
+    const state = enemy.state || 'walking';
+    if (state !== prevState.current) {
+      prevState.current = state;
+      const actions = actionsRef.current;
+      const nextAction = state === 'attacking'
+        ? (actions.run || actions.walk)
+        : actions.walk;
+      if (nextAction && nextAction !== currentAction.current) {
+        if (currentAction.current) currentAction.current.fadeOut(0.25);
+        nextAction.reset().fadeIn(0.25).play();
+        nextAction.timeScale = state === 'attacking' ? 1.6 : 1.0;
+        currentAction.current = nextAction;
+      }
+    }
+
+    // Update animation mixer
+    if (mixerRef.current) {
+      mixerRef.current.update(dt);
+    }
+
+    // HP bar
     if (hpBarRef.current) {
       const pct = Math.max(0, enemy.hp / enemy.maxHp);
       hpBarRef.current.scale.x = pct;
-      // color: green → yellow → red
       if (pct > 0.6) hpBarRef.current.material.color.setHex(0x44ff44);
       else if (pct > 0.3) hpBarRef.current.material.color.setHex(0xffff44);
       else hpBarRef.current.material.color.setHex(0xff4444);
@@ -176,7 +334,6 @@ function EnemyMesh({ enemy, clone }) {
       {clone ? (
         <primitive object={clone} />
       ) : (
-        /* Fallback: simple capsule if model fails */
         <mesh>
           <capsuleGeometry args={[30, 80, 4, 8]} />
           <meshStandardMaterial color="#ff3333" emissive="#ff0000" emissiveIntensity={0.4} />
@@ -249,6 +406,12 @@ export default function EnemyWaveManager({ groundY, wsSend }) {
   
   // Load enemy FBX model
   const enemyFBX = useFBX('/models/props/baddie/Warrior_Ink_1020205248_texture.fbx');
+
+  // Load walk/run animation clips from astronaut (Mixamo rig) — retargeted onto warrior skeleton
+  const walkFBX = useFBX('/models/avatars/astronaut/Walking.fbx');
+  const runFBX  = useFBX('/models/avatars/astronaut/Running.fbx');
+  const walkClips = useMemo(() => (walkFBX?.animations || []), [walkFBX]);
+  const runClips  = useMemo(() => (runFBX?.animations  || []), [runFBX]);
   
   // Clone pool
   const clonePool = useRef({});
@@ -369,6 +532,7 @@ export default function EnemyWaveManager({ groundY, wsSend }) {
 
         if (dist > ENEMY_ATTACK_RANGE) {
           // Move
+          enemy.state = 'walking';
           const moveSpeed = ENEMY_SPEED * dt;
           const nx = dx / dist;
           const nz = dz / dist;
@@ -382,20 +546,21 @@ export default function EnemyWaveManager({ groundY, wsSend }) {
             enemy.y = terrainY;
           }
         } else {
-          // Attack building piece
+          // Attack building piece — DISABLED for now (enemies gather but don't destroy)
+          enemy.state = 'attacking';
           if (enemy.targetPieceId) {
             enemy.attackTimer += dt;
-            if (enemy.attackTimer >= 0.5) { // deal damage every 0.5s
-              const dmg = ENEMY_ATTACK_DPS * enemy.attackTimer;
-              const result = damageBuildingPiece(enemy.targetPieceId, dmg);
-              enemy.attackTimer = 0;
-              if (result === -1) {
-                // Piece destroyed — retarget
-                enemy.targetPieceId = null;
-                enemy.targetPos = null;
-                needsRenderUpdate = true;
-              }
-            }
+            // Building damage disabled — enemies still path + animate attack
+            // if (enemy.attackTimer >= 0.5) {
+            //   const dmg = ENEMY_ATTACK_DPS * enemy.attackTimer;
+            //   const result = damageBuildingPiece(enemy.targetPieceId, dmg);
+            //   enemy.attackTimer = 0;
+            //   if (result === -1) {
+            //     enemy.targetPieceId = null;
+            //     enemy.targetPos = null;
+            //     needsRenderUpdate = true;
+            //   }
+            // }
           }
         }
       }
@@ -437,7 +602,10 @@ export default function EnemyWaveManager({ groundY, wsSend }) {
       }
     }
 
-    // ── Turret firing ──
+    // ── Turret firing (old box turrets + new two-piece model turrets) ──
+    // Initialize target tracking map for TurretTopTracker rendering
+    const turretTargets = {};
+
     for (const p of CURRENT_BUILDING_PIECES) {
       if (!p || p.type !== 'turret') continue;
       const turretX = p.x;
@@ -475,6 +643,71 @@ export default function EnemyWaveManager({ groundY, wsSend }) {
         });
       }
     }
+
+    // ── Model turret assembly: turretTop + turretBase paired firing ──
+    const PAIR_TOLERANCE = 3; // XZ distance tolerance for considering top+base as assembled
+    const turretBases = [];
+    const turretTops = [];
+    for (const p of CURRENT_BUILDING_PIECES) {
+      if (!p) continue;
+      const def = PIECE_TYPES[p.type];
+      if (def && def.isTurretBase) turretBases.push(p);
+      if (def && def.isTurretTop) turretTops.push(p);
+    }
+
+    for (const top of turretTops) {
+      const topDef = PIECE_TYPES[top.type];
+      // Find a base underneath this top piece (within tolerance)
+      let paired = false;
+      for (const base of turretBases) {
+        const dx = Math.abs(top.x - base.x);
+        const dz = Math.abs(top.z - base.z);
+        if (dx < PAIR_TOLERANCE && dz < PAIR_TOLERANCE) {
+          paired = true;
+          break;
+        }
+      }
+      if (!paired) continue; // Not assembled — no firing
+
+      const tRange = topDef.turretRange || TURRET_RANGE;
+      const tDamage = topDef.turretDamage || TURRET_DAMAGE;
+      const tFireRate = topDef.turretFireRate || TURRET_FIRE_RATE;
+      const turretY = (top.y || 0) + (topDef.dims[1] / 2);
+      const lastFire = turretCooldowns.current[top.id] || 0;
+
+      // Find nearest alive enemy in range (even outside fire cooldown, for tracking)
+      let bestEnemy = null;
+      let bestDSq = tRange * tRange;
+      for (const enemy of enemies) {
+        if (enemy.dead) continue;
+        const ddx = enemy.x - top.x;
+        const ddz = enemy.z - top.z;
+        const dsq = ddx * ddx + ddz * ddz;
+        if (dsq < bestDSq) {
+          bestDSq = dsq;
+          bestEnemy = enemy;
+        }
+      }
+
+      // Publish target for visual tracking (TurretTopTracker reads this)
+      if (bestEnemy) {
+        turretTargets[top.id] = { x: bestEnemy.x, y: bestEnemy.y, z: bestEnemy.z };
+      }
+
+      // Fire if off cooldown and target acquired
+      if (bestEnemy && (now - lastFire >= tFireRate)) {
+        bestEnemy.hp -= tDamage;
+        turretCooldowns.current[top.id] = now;
+        beamsThisFrame.push({
+          id: `${top.id}-${now}`,
+          from: [top.x, turretY, top.z],
+          to: [bestEnemy.x, bestEnemy.y + ENEMY_HEIGHT / 2, bestEnemy.z],
+          time: now,
+        });
+      }
+    }
+    // Publish turret targets for TurretTopTracker rotation
+    window.__CF_TURRET_TARGETS__ = turretTargets;
 
     // ── Player weapon damage to enemies ──
     // Check window global for bullet hits (set by WeaponSystem)
@@ -532,6 +765,8 @@ export default function EnemyWaveManager({ groundY, wsSend }) {
           key={enemy.id}
           enemy={enemy}
           clone={getClone(enemy.id)}
+          walkClips={walkClips}
+          runClips={runClips}
         />
       ))}
       {/* Turret beam visuals */}

@@ -456,6 +456,7 @@ const ModelPiece = React.memo(function ModelPiece({ piece, isDeleteTarget }) {
    ================================================================ */
 const PlacedPiece = React.memo(function PlacedPiece({ piece, isDeleteTarget, textures, wsSend }) {
   const def = PIECE_TYPES[piece.type];
+  const geo = useMemo(() => def && !def.isModel ? getPieceGeometry(piece.type) : null, [piece.type, def]);
   if (!def) return null;
 
   // Model-based props delegate to ModelPiece
@@ -477,8 +478,6 @@ const PlacedPiece = React.memo(function PlacedPiece({ piece, isDeleteTarget, tex
       </group>
     );
   }
-
-  const geo = useMemo(() => getPieceGeometry(piece.type), [piece.type]);
 
   const isMerged = ['wallDoor', 'wallWindow'].includes(piece.type);
   const isFence = piece.type === 'fence';
@@ -576,6 +575,7 @@ const PlacedPiece = React.memo(function PlacedPiece({ piece, isDeleteTarget, tex
    ================================================================ */
 function GhostPreview({ pieceType, position, rotation, valid }) {
   const def = PIECE_TYPES[pieceType];
+  const geo = useMemo(() => def && !def.isModel ? getPieceGeometry(pieceType) : null, [pieceType, def]);
   if (!def) return null;
 
   // Model-based props: show a bounding-box ghost instead of piece geometry
@@ -600,8 +600,6 @@ function GhostPreview({ pieceType, position, rotation, valid }) {
       </group>
     );
   }
-
-  const geo = useMemo(() => getPieceGeometry(pieceType), [pieceType]);
   const isMerged = ['wallDoor', 'wallWindow'].includes(pieceType);
   const isFence = pieceType === 'fence';
   const isProp = ['chest', 'lightPost', 'turret'].includes(pieceType);

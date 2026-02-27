@@ -564,6 +564,16 @@ function onDbConnected(conn){
       }
     }
   );
+  // Resources JSON column on users
+  safeQuery(
+    "ALTER TABLE users ADD COLUMN resources TEXT NULL",
+    (e) => {
+      const msg = String(e && e.message);
+      if (e && !/Duplicate column|ER_DUP_FIELDNAME/i.test(msg)) {
+        console.warn("ALTER users add resources failed:", msg);
+      }
+    }
+  );
   // Simple key-value app config for global settings
   safeQuery(
     "CREATE TABLE IF NOT EXISTS app_config (k VARCHAR(64) PRIMARY KEY, v TEXT NOT NULL)",
@@ -1066,6 +1076,88 @@ app.post("/sc/adjust", requireAuth, (req, res) => {
         e2
           ? res.status(500).json({ message: "DB update error" })
           : res.json({ ok: true, sc_balance: next, memo: memo || null })
+    );
+  });
+});
+
+/* -------------------- Resources (Moon game inventory) -------------------- */
+
+// Load resources for the logged-in user
+app.get("/resources", requireAuth, (req, res) => {
+  const { username } = req.user;
+  db.query("SELECT resources, sc_balance FROM users WHERE username = ? LIMIT 1", [username], (e, rows) => {
+    if (e) return res.status(500).json({ message: "DB error" });
+    if (!rows.length) return res.status(404).json({ message: "User not found" });
+    let resources = {};
+    try { resources = JSON.parse(rows[0].resources) || {}; } catch {}
+    res.json({ resources, sc_balance: Number(rows[0].sc_balance) || 0 });
+  });
+});
+
+// Save resources (after collecting)
+app.post("/resources/save", requireAuth, (req, res) => {
+  const { username } = req.user;
+  const { resources } = req.body || {};
+  if (!resources || typeof resources !== 'object') return res.status(400).json({ message: "Bad resources" });
+  const json = JSON.stringify(resources);
+  db.query("UPDATE users SET resources = ? WHERE username = ? LIMIT 1", [json, username], (e) => {
+    if (e) return res.status(500).json({ message: "DB error" });
+    res.json({ ok: true });
+  });
+});
+
+// Sell resources — validates on server, atomically updates sc_balance + resources
+const SELL_VALUES = { moonRock: 2, lunarCrystal: 10, helium3: 50, alienArtifact: 150 };
+
+app.post("/resources/sell", requireAuth, (req, res) => {
+  const { username } = req.user;
+  const { sellItems, currentResources } = req.body || {};
+  // sellItems: { resourceId: countToSell } e.g. { moonRock: 5 } or 'all'
+  // currentResources: optional fallback if server DB has no resources saved yet
+  if (!sellItems) return res.status(400).json({ message: "Missing sellItems" });
+
+  db.query("SELECT resources, sc_balance FROM users WHERE username = ? LIMIT 1", [username], (e, rows) => {
+    if (e) return res.status(500).json({ message: "DB error" });
+    if (!rows.length) return res.status(404).json({ message: "User not found" });
+
+    let resources = {};
+    try { resources = JSON.parse(rows[0].resources) || {}; } catch {}
+    // If DB has no resources saved yet, use client-provided fallback
+    if (Object.keys(resources).length === 0 && currentResources && typeof currentResources === 'object') {
+      resources = { ...currentResources };
+    }
+    let scBal = Number(rows[0].sc_balance) || 0;
+    let totalEarned = 0;
+
+    if (sellItems === 'all') {
+      // Sell everything
+      for (const [id, count] of Object.entries(resources)) {
+        const c = Number(count) || 0;
+        if (c <= 0) continue;
+        const value = SELL_VALUES[id] || 0;
+        totalEarned += value * c;
+        resources[id] = 0;
+      }
+    } else if (typeof sellItems === 'object') {
+      for (const [id, sellCount] of Object.entries(sellItems)) {
+        const have = Number(resources[id]) || 0;
+        const toSell = Math.min(Number(sellCount) || 0, have);
+        if (toSell <= 0) continue;
+        const value = SELL_VALUES[id] || 0;
+        totalEarned += value * toSell;
+        resources[id] = have - toSell;
+      }
+    }
+
+    scBal += totalEarned;
+    const json = JSON.stringify(resources);
+    db.query(
+      "UPDATE users SET sc_balance = ?, resources = ? WHERE username = ? LIMIT 1",
+      [scBal, json, username],
+      (e2) => {
+        if (e2) return res.status(500).json({ message: "DB update error" });
+        res.json({ ok: true, sc_balance: scBal, resources, earned: totalEarned });
+      }
     );
   });
 });

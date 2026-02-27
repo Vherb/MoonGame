@@ -6,11 +6,13 @@ import { create } from 'zustand';
 /* ================================================================
    Building Piece Definitions
    ================================================================ */
-export const GRID_SIZE = 10;       // each piece occupies a 10×10 grid cell
-export const WALL_HEIGHT = 12;     // wall height
-export const WALL_THICKNESS = 0.5;
-export const FLOOR_THICKNESS = 0.5;
+export const GRID_SIZE = 32;       // each piece occupies a 32×32 grid cell (player is ~14 tall)
+export const WALL_HEIGHT = 30;     // wall height — ~2× player height
+export const WALL_THICKNESS = 1.2;
+export const FLOOR_THICKNESS = 1.2;
 export const RAMP_HEIGHT = WALL_HEIGHT;
+
+export const FENCE_HEIGHT = WALL_HEIGHT * 0.35; // short railing height
 
 export const PIECE_TYPES = {
   foundation: {
@@ -39,15 +41,15 @@ export const PIECE_TYPES = {
     id: 'wallDoor',
     label: 'Door Wall',
     glyph: '🚪',
-    description: 'Wall with a door opening.',
+    description: 'Wall with a door opening. Click door to open/close.',
     dims: [GRID_SIZE, WALL_HEIGHT, WALL_THICKNESS],
     cost: {},
     color: '#8E8E8E',
     snapType: 'wall',
     walkable: false,
     hasDoor: true,
-    doorWidth: 3.5,
-    doorHeight: 7.0,
+    doorWidth: 10.0,
+    doorHeight: 22.0,
   },
   wallWindow: {
     id: 'wallWindow',
@@ -60,9 +62,9 @@ export const PIECE_TYPES = {
     snapType: 'wall',
     walkable: false,
     hasWindow: true,
-    windowWidth: 4.0,
-    windowHeight: 3.0,
-    windowY: 5.5,  // center Y of window relative to wall base
+    windowWidth: 10.0,
+    windowHeight: 8.0,
+    windowY: 16.0,  // center Y of window relative to wall base
   },
   floor: {
     id: 'floor',
@@ -97,10 +99,85 @@ export const PIECE_TYPES = {
     snapType: 'wall',
     walkable: false,
   },
+  fence: {
+    id: 'fence',
+    label: 'Fence',
+    glyph: '🏗️',
+    description: 'Metal railing fence. Blocks movement but allows visibility.',
+    dims: [GRID_SIZE, FENCE_HEIGHT, WALL_THICKNESS],
+    cost: {},
+    color: '#A0A0A0',
+    snapType: 'wall',
+    walkable: false,
+  },
+  reinforcedWall: {
+    id: 'reinforcedWall',
+    label: 'Armored Wall',
+    glyph: '🛡️',
+    description: 'Triple-health wall. Resists raids.',
+    dims: [GRID_SIZE, WALL_HEIGHT, WALL_THICKNESS * 2],
+    cost: {},
+    color: '#6A6A7A',
+    snapType: 'wall',
+    walkable: false,
+    healthMultiplier: 3,
+  },
+  spikeTrap: {
+    id: 'spikeTrap',
+    label: 'Spike Trap',
+    glyph: '⚠️',
+    description: 'Floor trap. Damages enemies who walk over it.',
+    dims: [GRID_SIZE, FLOOR_THICKNESS, GRID_SIZE],
+    cost: {},
+    color: '#884444',
+    snapType: 'floor',
+    walkable: true,
+    isTrap: true,
+    trapDamage: 15,
+  },
+  chest: {
+    id: 'chest',
+    label: 'Chest',
+    glyph: '📦',
+    description: 'Storage chest. Click to open inventory.',
+    dims: [8, 6, 6],
+    cost: {},
+    color: '#8B6914',
+    snapType: 'prop',
+    walkable: false,
+  },
+  lightPost: {
+    id: 'lightPost',
+    label: 'Light Post',
+    glyph: '💡',
+    description: 'Illuminates the area around it.',
+    dims: [2, 20, 2],
+    cost: {},
+    color: '#CCCCCC',
+    snapType: 'prop',
+    walkable: false,
+    lightRadius: 60,
+    lightIntensity: 2.5,
+    lightColor: '#ffe4b5',
+  },
+  turret: {
+    id: 'turret',
+    label: 'Turret',
+    glyph: '🔫',
+    description: 'Auto-fires at nearby enemies.',
+    dims: [6, 8, 6],
+    cost: {},
+    color: '#556B2F',
+    snapType: 'prop',
+    walkable: false,
+    turretRange: 80,
+    turretDamage: 10,
+    turretFireRate: 1.5, // seconds between shots
+  },
 };
 
 // Ordered list for cycling through pieces
-export const PIECE_ORDER = ['foundation', 'wall', 'wallDoor', 'wallWindow', 'floor', 'ramp', 'halfWall'];
+export const PIECE_ORDER = ['foundation', 'wall', 'wallDoor', 'wallWindow', 'floor', 'ramp', 'halfWall', 'fence', 'reinforcedWall', 'spikeTrap', 'chest', 'lightPost', 'turret', 'demolish'];
 
 /* ================================================================
    Snap Point Definitions
@@ -132,7 +209,7 @@ export function getSnapPoints(piece, placedPiece) {
       points.push({
         position: [wx, wallY, wz],
         rotation: rotation + d.rot,
-        accepts: ['wall', 'wallDoor', 'wallWindow', 'halfWall'],
+        accepts: ['wall', 'wallDoor', 'wallWindow', 'halfWall', 'fence', 'reinforcedWall'],
         type: 'wall',
       });
     }
@@ -180,6 +257,16 @@ export function getSnapPoints(piece, placedPiece) {
     });
   }
 
+  // Props can snap to center of any foundation/floor
+  if (type.snapType === 'floor' || piece === 'foundation') {
+    points.push({
+      position: [x, y + FLOOR_THICKNESS, z],
+      rotation: rotation,
+      accepts: ['chest', 'lightPost', 'turret', 'spikeTrap'],
+      type: 'prop',
+    });
+  }
+
   return points;
 }
 
@@ -187,9 +274,20 @@ export function getSnapPoints(piece, placedPiece) {
    localStorage persistence
    ================================================================ */
 const LS_KEY = 'cf3d_building';
+const LS_VERSION_KEY = 'cf3d_building_v';
+const BUILDING_VERSION = `g${GRID_SIZE}_w${WALL_HEIGHT}`; // auto-invalidates on size change
 
 function loadBuilding() {
   try {
+    // If building dimensions changed, wipe old saves (they'd look wrong)
+    const savedVersion = localStorage.getItem(LS_VERSION_KEY);
+    if (savedVersion && savedVersion !== BUILDING_VERSION) {
+      console.log('[Building] Grid/wall size changed — clearing old saved buildings');
+      localStorage.removeItem(LS_KEY);
+      localStorage.setItem(LS_VERSION_KEY, BUILDING_VERSION);
+      return null;
+    }
+    localStorage.setItem(LS_VERSION_KEY, BUILDING_VERSION);
     const raw = localStorage.getItem(LS_KEY);
     if (!raw) return null;
     return JSON.parse(raw);
@@ -212,6 +310,8 @@ export const useBuildingStore = create((set, get) => ({
   // ── Build mode state ──
   buildMode: false,           // is player in build mode?
   selectedPiece: 'foundation', // which piece type is selected
+  deleteMode: false,          // is the demolish tool active?
+  deleteTargetId: null,       // id of piece being targeted for deletion
   ghostPosition: [0, 0, 0],  // preview position
   ghostRotation: 0,           // preview Y rotation (radians)
   ghostValid: false,          // can place here?
@@ -220,17 +320,35 @@ export const useBuildingStore = create((set, get) => ({
   // ── Placed pieces ──
   pieces: savedPieces,        // array of { id, type, x, y, z, rotation, health, ownerId }
 
+  // ── Door states ── (maps pieceId → boolean open)
+  doorStates: {},             // { [pieceId]: true/false }
+
   // ── Actions ──
   toggleBuildMode: () => set(s => ({ buildMode: !s.buildMode })),
   enterBuildMode: () => set({ buildMode: true }),
   exitBuildMode: () => set({ buildMode: false }),
 
-  selectPiece: (pieceId) => set({ selectedPiece: pieceId }),
+  selectPiece: (pieceId) => set({ selectedPiece: pieceId, deleteMode: pieceId === 'demolish' }),
+  setDeleteTarget: (pieceId) => set({ deleteTargetId: pieceId }),
+
+  // Toggle a door open/closed
+  toggleDoor: (pieceId) => {
+    set(prev => {
+      const isOpen = !prev.doorStates[pieceId];
+      return { doorStates: { ...prev.doorStates, [pieceId]: isOpen } };
+    });
+    return get().doorStates;
+  },
+
+  setDoorState: (pieceId, isOpen) => {
+    set(prev => ({ doorStates: { ...prev.doorStates, [pieceId]: !!isOpen } }));
+  },
 
   cyclePiece: (dir = 1) => set(s => {
     const idx = PIECE_ORDER.indexOf(s.selectedPiece);
     const next = (idx + dir + PIECE_ORDER.length) % PIECE_ORDER.length;
-    return { selectedPiece: PIECE_ORDER[next] };
+    const newPiece = PIECE_ORDER[next];
+    return { selectedPiece: newPiece, deleteMode: newPiece === 'demolish' };
   }),
 
   setGhost: (position, rotation, valid, snapId = null) => set({
@@ -267,7 +385,7 @@ export const useBuildingStore = create((set, get) => ({
       y: s.ghostPosition[1],
       z: s.ghostPosition[2],
       rotation: s.ghostRotation,
-      health: 100,
+      health: 100 * (pieceDef.healthMultiplier || 1),
       ownerId,
     };
 
@@ -320,12 +438,16 @@ export const useBuildingStore = create((set, get) => ({
 
   // Sync from server/WS (replace all pieces)
   syncPieces: (pieces) => {
+    // Update nextId to avoid collisions with server-synced pieces
+    const maxId = pieces.reduce((max, p) => Math.max(max, p.id || 0), 0);
+    if (maxId >= nextId) nextId = maxId + 1;
     set({ pieces });
     saveBuilding(pieces);
   },
 
   // Add a single piece from remote player
   addRemotePiece: (piece) => {
+    if (piece.id >= nextId) nextId = piece.id + 1;
     set(prev => {
       if (prev.pieces.find(p => p.id === piece.id)) return prev; // already exists
       const updated = [...prev.pieces, piece];

@@ -140,10 +140,24 @@ export default function CameraFollower({
   }, [gl, firstPersonMode, followRocket]);
 
   // Release pointer lock when leaving FPS mode
+  // AND snap the orbit angle back to 0 so 3rd-person camera doesn't spin
+  const prevFPV = useRef(firstPersonMode);
   useEffect(() => {
+    if (prevFPV.current && !firstPersonMode) {
+      // Was FPV, now 3rd person — reset orbit so camera is behind character
+      horizontalAngle.current = 0;
+      verticalAngle.current = 0;
+      lastManualControlTime.current = 0; // allow auto-reset immediately
+      settingsChanged.current = true;    // force instant camera snap (skip lerp)
+      smoothTarget.current = null;       // reset look-at target so it recalculates
+      if (isPointerLocked.current) {
+        document.exitPointerLock();
+      }
+    }
     if (!firstPersonMode && isPointerLocked.current) {
       document.exitPointerLock();
     }
+    prevFPV.current = firstPersonMode;
   }, [firstPersonMode]);
 
   // Initialize smooth position
@@ -408,6 +422,8 @@ export default function CameraFollower({
         window.__CF_3RD_CAMERA_YAW__ = totalYaw;
         window.__CF_3RD_CAMERA_PITCH__ = verticalAngle.current;
         window.__CF_3RD_SHOULDER_BLEND__ = shoulderBlend.current;
+        window.__CF_3RD_CAM_POS__ = [smoothPos.current.x, smoothPos.current.y, smoothPos.current.z];
+        window.__CF_3RD_CAM_TARGET__ = [smoothTarget.current.x, smoothTarget.current.y, smoothTarget.current.z];
       }
 
       const ctrl = controlsRef.current;

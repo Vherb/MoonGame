@@ -1,7 +1,87 @@
 // ConnectFour3D – Inventory System (Zustand store)
-// Manages collectible items, equipment slots, and persistence via localStorage.
+// Manages collectible items, equipment slots, and persistence via localStorage + server DB.
 
 import { create } from 'zustand';
+import { resolveServerHost, httpProto } from '../../../config';
+
+/* ================================================================
+   API helpers — persist resources + SC to server DB
+   ================================================================ */
+function getApiBase() {
+  // In dev, use relative URLs so CRA proxy handles routing (no CORS issues).
+  // In prod, build the full URL.
+  if (typeof window !== 'undefined' && window.location.port === '3000') {
+    return ''; // relative — goes through CRA proxy to :3002
+  }
+  const host = resolveServerHost();
+  const proto = httpProto();
+  return `${proto}//${host}:3002`;
+}
+
+function authHeaders() {
+  const token = localStorage.getItem('token');
+  if (!token) return null;
+  return { Authorization: `Bearer ${token}`, 'Content-Type': 'application/json' };
+}
+
+/** Fetch SC balance from the existing /balance endpoint (proven working) */
+async function fetchBalanceFromServer() {
+  const h = authHeaders();
+  if (!h) return null;
+  try {
+    const r = await fetch(`${getApiBase()}/balance`, { headers: h });
+    if (!r.ok) { console.warn('[Inventory] /balance failed:', r.status); return null; }
+    const d = await r.json();
+    return Number(d.sc_balance) || 0;
+  } catch (e) { console.warn('[Inventory] /balance error:', e); return null; }
+}
+
+/** Fetch SC balance + resources from /resources endpoint */
+async function fetchServerInventory() {
+  const h = authHeaders();
+  if (!h) return null;
+  try {
+    const r = await fetch(`${getApiBase()}/resources`, { headers: h });
+    if (!r.ok) { console.warn('[Inventory] /resources failed:', r.status); return null; }
+    return await r.json(); // { resources, sc_balance }
+  } catch (e) { console.warn('[Inventory] /resources error:', e); return null; }
+}
+
+/** Save resources to server (fire-and-forget, debounced externally) */
+function saveResourcesToServer(resources) {
+  const h = authHeaders();
+  if (!h) return;
+  fetch(`${getApiBase()}/resources/save`, {
+    method: 'POST', headers: h,
+    body: JSON.stringify({ resources }),
+  }).catch(() => {});
+}
+
+/** Sell resources on server — returns { sc_balance, resources, earned } */
+async function sellOnServer(sellItems, currentResources) {
+  const h = authHeaders();
+  if (!h) return null;
+  try {
+    const r = await fetch(`${getApiBase()}/resources/sell`, {
+      method: 'POST', headers: h,
+      body: JSON.stringify({ sellItems, currentResources }),
+    });
+    if (!r.ok) { console.warn('[Inventory] sell failed:', r.status); return null; }
+    return await r.json();
+  } catch (e) { console.warn('[Inventory] sell error:', e); return null; }
+}
+
+// Debounce timer for resource saves
+let _saveTimer = null;
+function debouncedSaveResources(resources) {
+  if (_saveTimer) clearTimeout(_saveTimer);
+  _saveTimer = setTimeout(() => { saveResourcesToServer(resources); _saveTimer = null; }, 2000);
+}
+
+// Retry timer for loadFromServer
+let _retryTimer = null;
+let _retryCount = 0;
+const MAX_RETRIES = 10;
 
 /* ================================================================
    Item Catalog — every item the game knows about
@@ -119,8 +199,9 @@ export const useInventoryStore = create((set, get) => ({
   // Resource stacks: { [resourceId]: count }
   resources: saved?.resources || {},
 
-  // SC balance (local cache — synced to server when selling)
+  // SC balance (synced to/from server DB)
   scBalance: 0,
+  _serverLoaded: false,
 
   // UI state
   isOpen: false,
@@ -217,7 +298,7 @@ export const useInventoryStore = create((set, get) => ({
 
   // ── Resource actions ──
 
-  /** Add a collected resource (stacks) */
+  /** Add a collected resource (stacks) — also saves to server DB */
   addResource: (resourceId) => {
     const catalog = ITEM_CATALOG[resourceId];
     if (!catalog || catalog.type !== 'resource') return;
@@ -227,6 +308,7 @@ export const useInventoryStore = create((set, get) => ({
         resources: { ...s.resources, [resourceId]: (s.resources[resourceId] || 0) + 1 },
       };
       saveToStorage(next);
+      debouncedSaveResources(next.resources);
       return next;
     });
   },
@@ -247,7 +329,7 @@ export const useInventoryStore = create((set, get) => ({
     return true;
   },
 
-  /** Sell one unit of a resource for SC */
+  /** Sell one unit of a resource for SC — persists to server DB */
   sellResource: (resourceId) => {
     const catalog = ITEM_CATALOG[resourceId];
     if (!catalog || catalog.type !== 'resource') return 0;
@@ -255,6 +337,7 @@ export const useInventoryStore = create((set, get) => ({
     const count = s.resources[resourceId] || 0;
     if (count <= 0) return 0;
     const value = catalog.sellValue || 0;
+    // Optimistic local update
     set(prev => {
       const next = {
         ...prev,
@@ -264,10 +347,14 @@ export const useInventoryStore = create((set, get) => ({
       saveToStorage(next);
       return next;
     });
+    // Persist to server (send current resources as fallback for first-time sync)
+    sellOnServer({ [resourceId]: 1 }, s.resources).then(resp => {
+      if (resp) set({ scBalance: resp.sc_balance, resources: resp.resources });
+    });
     return value;
   },
 
-  /** Sell all units of a specific resource */
+  /** Sell all units of a specific resource — persists to server DB */
   sellAllOfResource: (resourceId) => {
     const catalog = ITEM_CATALOG[resourceId];
     if (!catalog || catalog.type !== 'resource') return 0;
@@ -275,6 +362,7 @@ export const useInventoryStore = create((set, get) => ({
     const count = s.resources[resourceId] || 0;
     if (count <= 0) return 0;
     const totalValue = (catalog.sellValue || 0) * count;
+    // Optimistic local update
     set(prev => {
       const next = {
         ...prev,
@@ -284,10 +372,14 @@ export const useInventoryStore = create((set, get) => ({
       saveToStorage(next);
       return next;
     });
+    // Persist to server (send current resources as fallback)
+    sellOnServer({ [resourceId]: count }, s.resources).then(resp => {
+      if (resp) set({ scBalance: resp.sc_balance, resources: resp.resources });
+    });
     return totalValue;
   },
 
-  /** Sell ALL resources */
+  /** Sell ALL resources — persists to server DB */
   sellAllResources: () => {
     const s = get();
     let totalValue = 0;
@@ -300,6 +392,7 @@ export const useInventoryStore = create((set, get) => ({
       cleared[id] = 0;
     }
     if (totalValue === 0) return 0;
+    // Optimistic local update
     set(prev => {
       const next = {
         ...prev,
@@ -308,6 +401,10 @@ export const useInventoryStore = create((set, get) => ({
       };
       saveToStorage(next);
       return next;
+    });
+    // Persist to server (send current resources as fallback)
+    sellOnServer('all', s.resources).then(resp => {
+      if (resp) set({ scBalance: resp.sc_balance, resources: resp.resources });
     });
     return totalValue;
   },
@@ -320,4 +417,71 @@ export const useInventoryStore = create((set, get) => ({
 
   /** Set SC balance (for syncing from server) */
   setSCBalance: (bal) => set({ scBalance: bal }),
+
+  /** Load resources + SC from server DB. Can be called multiple times. */
+  loadFromServer: async (force = false) => {
+    if (get()._serverLoaded && !force) return;
+    if (!localStorage.getItem('token')) return;
+
+    console.log('[Inventory] Loading from server...');
+
+    // Strategy 1: try /resources (returns both resources + SC balance)
+    const data = await fetchServerInventory();
+    if (data) {
+      const merged = { ...get().resources };
+      if (data.resources && typeof data.resources === 'object') {
+        for (const [id, count] of Object.entries(data.resources)) {
+          merged[id] = Math.max(Number(count) || 0, merged[id] || 0);
+        }
+      }
+      const scBal = Number(data.sc_balance) || 0;
+      console.log('[Inventory] Loaded from /resources — SC:', scBal, 'resources:', merged);
+      set({
+        resources: merged,
+        scBalance: scBal,
+        _serverLoaded: true,
+      });
+      saveToStorage({ ...get() });
+      return;
+    }
+
+    // Strategy 2: /resources failed — at least get SC from /balance (always works)
+    const bal = await fetchBalanceFromServer();
+    if (bal !== null) {
+      console.log('[Inventory] Loaded from /balance — SC:', bal);
+      set({ scBalance: bal, _serverLoaded: true });
+      return;
+    }
+
+    // Both failed — schedule retry
+    console.warn('[Inventory] Server load failed, will retry...');
+    if (_retryCount < MAX_RETRIES && !_retryTimer) {
+      _retryCount++;
+      const delay = Math.min(2000 * _retryCount, 15000);
+      _retryTimer = setTimeout(() => {
+        _retryTimer = null;
+        useInventoryStore.getState().loadFromServer(true);
+      }, delay);
+    }
+  },
 }));
+
+// Auto-load from server when user is logged in — try immediately + after a delay
+function _tryAutoLoad() {
+  if (!localStorage.getItem('token')) return;
+  _retryCount = 0;
+  useInventoryStore.getState().loadFromServer(true);
+}
+
+if (typeof window !== 'undefined') {
+  // On module init
+  setTimeout(_tryAutoLoad, 300);
+  // Also listen for login events (token being set)
+  window.addEventListener('storage', (e) => {
+    if (e.key === 'token' && e.newValue) {
+      setTimeout(_tryAutoLoad, 200);
+    }
+  });
+  // Publish a global so the depot UI can force-refresh
+  window.__CF_RELOAD_INVENTORY__ = () => useInventoryStore.getState().loadFromServer(true);
+}

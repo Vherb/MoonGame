@@ -134,6 +134,7 @@ class RoomManager {
       // Sandbox world state
       placedCubes: [],
       audioVisualizers: [],
+      buildingPieces: [],    // persistent building system pieces
       avatarPositions: {},   // keyed by socketId
 
       // Active C4 games within this room
@@ -341,7 +342,8 @@ class RoomManager {
     if (room.players.size === 0) {
       // Rooms with placed content (cubes/visualizers) get 24h; empty rooms get 30min
       const hasContent = (room.placedCubes && room.placedCubes.length > 0) ||
-                         (room.audioVisualizers && room.audioVisualizers.length > 0);
+                         (room.audioVisualizers && room.audioVisualizers.length > 0) ||
+                         (room.buildingPieces && room.buildingPieces.length > 0);
       const grace = hasContent ? 24 * 60 * 60 * 1000 : 30 * 60 * 1000;
       room._destroyTimeout = setTimeout(() => {
         if (room.players.size === 0) {
@@ -457,6 +459,38 @@ class RoomManager {
     if (!Array.isArray(visualizers)) return null;
 
     room.audioVisualizers = visualizers;
+    room.lastActivity = Date.now();
+    this._scheduleSave();
+    return room;
+  }
+
+  /* ---------- Building pieces persistence ---------- */
+
+  addBuildingPiece(ws, piece) {
+    const meta = this.socketMeta.get(ws);
+    if (!meta?.roomCode) return null;
+    const room = this.rooms.get(meta.roomCode);
+    if (!room) return null;
+    if (!piece || typeof piece !== 'object') return null;
+
+    if (!room.buildingPieces) room.buildingPieces = [];
+    // Avoid duplicate ids
+    if (room.buildingPieces.find(p => p.id === piece.id)) return room;
+    room.buildingPieces.push(piece);
+    room.lastActivity = Date.now();
+    this._scheduleSave();
+    return room;
+  }
+
+  removeBuildingPiece(ws, pieceId) {
+    const meta = this.socketMeta.get(ws);
+    if (!meta?.roomCode) return null;
+    const room = this.rooms.get(meta.roomCode);
+    if (!room) return null;
+    if (pieceId == null) return null;
+
+    if (!room.buildingPieces) room.buildingPieces = [];
+    room.buildingPieces = room.buildingPieces.filter(p => p.id !== pieceId);
     room.lastActivity = Date.now();
     this._scheduleSave();
     return room;
@@ -777,6 +811,7 @@ class RoomManager {
       players,
       placedCubes: room.placedCubes || [],
       audioVisualizers: room.audioVisualizers || [],
+      buildingPieces: room.buildingPieces || [],
       avatarPositions: room.avatarPositions || {},
       games,
     };
@@ -829,6 +864,7 @@ class RoomManager {
             players,
             placedCubes: Array.isArray(s.placedCubes) ? s.placedCubes : [],
             audioVisualizers: Array.isArray(s.audioVisualizers) ? s.audioVisualizers : [],
+            buildingPieces: Array.isArray(s.buildingPieces) ? s.buildingPieces : [],
             avatarPositions: s.avatarPositions || {},
             games,
             challenges: new Map(),
@@ -838,7 +874,8 @@ class RoomManager {
 
           // Start destroy timer for restored empty rooms (no live players)
           const hasContent = (room.placedCubes && room.placedCubes.length > 0) ||
-                             (room.audioVisualizers && room.audioVisualizers.length > 0);
+                             (room.audioVisualizers && room.audioVisualizers.length > 0) ||
+                             (room.buildingPieces && room.buildingPieces.length > 0);
           const grace = hasContent ? 24 * 60 * 60 * 1000 : 30 * 60 * 1000;
           room._destroyTimeout = setTimeout(() => {
             if (room.players.size === 0) {

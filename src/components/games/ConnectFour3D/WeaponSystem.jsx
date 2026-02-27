@@ -596,7 +596,7 @@ export function CombatUI({
       {/* Weapon wheel hint (center bottom) */}
       <div style={{
         position: 'absolute',
-        bottom: '80px',
+        bottom: '20px',
         left: '50%',
         transform: 'translateX(-50%)',
         fontSize: '14px',

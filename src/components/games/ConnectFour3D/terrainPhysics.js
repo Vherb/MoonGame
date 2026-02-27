@@ -27,6 +27,77 @@ export function updateBuildingPiecesCache(pieces) {
   CURRENT_BUILDING_PIECES = pieces || [];
 }
 
+/**
+ * Check if a world position (wx, wz) at height feetY collides with any
+ * non-walkable building piece (walls). Uses oriented AABB collision.
+ * @param {number} wx - world X
+ * @param {number} wz - world Z
+ * @param {number} feetY - player feet Y (world, absolute)
+ * @param {number} playerHeight - avatar height (default 14)
+ * @param {number} collisionRadius - player collision radius (default 2)
+ * @returns {boolean} true if position intersects a wall
+ */
+export function checkBuildingWallCollision(wx, wz, feetY, playerHeight = 14, collisionRadius = 2) {
+  for (const p of CURRENT_BUILDING_PIECES) {
+    if (!p || p.walkable) continue; // skip walkable pieces (foundations, floors, ramps)
+    // Skip prop-type pieces (chest, lightPost, turret) — they don't block movement like walls
+    const snapType = p.snapType;
+    if (snapType === 'prop') continue;
+
+    const w = p.dims?.[0] || 4;
+    const h = p.dims?.[1] || 4;
+    const d = p.dims?.[2] || 1;
+    const rot = p.rotation || 0;
+    const py = p.y || 0; // piece base Y (absolute world Y)
+
+    // Vertical check: player's feet-to-head range must overlap the wall's vertical range
+    const wallBottom = py;
+    const wallTop = py + h;
+    const headY = feetY + playerHeight;
+    if (headY <= wallBottom || feetY >= wallTop) continue; // completely above or below wall
+
+    // Transform player world coords into piece-local space
+    const dx = wx - p.x;
+    const dz = wz - p.z;
+    const cosR = Math.cos(-rot), sinR = Math.sin(-rot);
+    const lx = dx * cosR - dz * sinR;
+    const lz = dx * sinR + dz * cosR;
+
+    // Expand wall bounds by collision radius for player body
+    const halfW = w / 2 + collisionRadius;
+    const halfD = d / 2 + collisionRadius;
+
+    if (lx >= -halfW && lx <= halfW && lz >= -halfD && lz <= halfD) {
+      // Check for door opening: if the wall has a door, allow passage through the doorway
+      if (p.type === 'wallDoor') {
+        const doorW = (p.doorWidth || 10) / 2;
+        const doorH = p.doorHeight || 22;
+        // Door is centered in the wall (lx=0), from ground to doorH
+        // Check door state — if door is open, always allow passage
+        let doorOpen = false;
+        try {
+          const { useBuildingStore } = require('./useBuildingStore');
+          doorOpen = !!useBuildingStore.getState().doorStates[p.id];
+        } catch {}
+        if (doorOpen) {
+          // Door is open — allow passage through full door area
+          if (lx >= -doorW && lx <= doorW && feetY < (py + doorH)) {
+            continue;
+          }
+        }
+        // Door is closed but still has the physical opening (frame cutout)
+        // Block passage when door is closed
+        if (!doorOpen && lx >= -doorW && lx <= doorW && feetY < (py + doorH)) {
+          return true; // blocked by closed door
+        }
+      }
+      // Check for window opening (windows are too high/small to walk through, but just in case)
+      return true; // collision with wall
+    }
+  }
+  return false;
+}
+
 // Giant walkable moon sphere (registered by GiantMoonSphere component)
 export let GIANT_MOON_SPHERE = null; // { cx, cy, cz, radius, bumpAt }
 export function setGiantMoonSphere(cfg) { GIANT_MOON_SPHERE = cfg; }

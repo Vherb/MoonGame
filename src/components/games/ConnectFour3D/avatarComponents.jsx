@@ -2028,7 +2028,7 @@ export function AstronautFBXOpponent({
         // Skip position/rotation/scale writes while the gizmo is being dragged (only for local)
         const isDragging = isLocalPlayer && !!window.__CF_RIFLE_DRAGGING__;
         if (tuner) {
-          rifleGroupRef.current.visible = tuner.forceVisible || !!isAiming;
+          rifleGroupRef.current.visible = tuner.forceVisible || !!(isAiming || isShooting);
           if (!isDragging) {
             rifleGroupRef.current.position.x = tuner.pos[0];
             rifleGroupRef.current.position.y = tuner.pos[1];
@@ -2039,7 +2039,7 @@ export function AstronautFBXOpponent({
             rifleGroupRef.current.updateMatrix();
           }
         } else {
-          rifleGroupRef.current.visible = !!isAiming;
+          rifleGroupRef.current.visible = !!(isAiming || isShooting);
         }
       }
     } catch {}

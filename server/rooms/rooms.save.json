@@ -1,5 +1,5 @@
 {
-  "savedAt": 1772153236665,
+  "savedAt": 1772166422030,
   "rooms": [
     {
       "code": "MOON-GXCK",
@@ -8,21 +8,425 @@
       "hostId": 14,
       "hostUsername": "poop",
       "createdAt": 1772137871913,
-      "lastActivity": 1772153236164,
+      "lastActivity": 1772166421529,
       "players": [
         {
-          "socketId": "d30b338b",
+          "socketId": "c9b513b1",
+          "userId": 2,
+          "username": "vherb",
+          "character": "astronaut",
+          "avatar": "rocket",
+          "color": "#6366f1",
+          "joinedAt": 1772165257434
+        },
+        {
+          "socketId": "4afbf566",
           "userId": 14,
           "username": "poop",
           "character": "astronaut",
           "avatar": "rocket",
           "color": "#6366f1",
-          "joinedAt": 1772153236164
+          "joinedAt": 1772165264077
         }
       ],
       "placedCubes": [],
       "audioVisualizers": [],
-      "avatarPositions": {},
+      "buildingPieces": [
+        {
+          "id": 104,
+          "type": "foundation",
+          "x": 544,
+          "y": 11.402863579903302,
+          "z": 32,
+          "rotation": 0,
+          "health": 100,
+          "ownerId": "local"
+        },
+        {
+          "id": 105,
+          "type": "foundation",
+          "x": 544,
+          "y": 11.402863579903302,
+          "z": 0,
+          "rotation": 0,
+          "health": 100,
+          "ownerId": "local"
+        },
+        {
+          "id": 106,
+          "type": "foundation",
+          "x": 512,
+          "y": 11.402863579903302,
+          "z": 0,
+          "rotation": 0,
+          "health": 100,
+          "ownerId": "local"
+        },
+        {
+          "id": 107,
+          "type": "foundation",
+          "x": 512,
+          "y": 11.402863579903302,
+          "z": -32,
+          "rotation": 0,
+          "health": 100,
+          "ownerId": "local"
+        },
+        {
+          "id": 108,
+          "type": "foundation",
+          "x": 544,
+          "y": 11.402863579903302,
+          "z": -32,
+          "rotation": 0,
+          "health": 100,
+          "ownerId": "local"
+        },
+        {
+          "id": 109,
+          "type": "foundation",
+          "x": 576,
+          "y": 11.402863579903302,
+          "z": -32,
+          "rotation": 0,
+          "health": 100,
+          "ownerId": "local"
+        },
+        {
+          "id": 110,
+          "type": "foundation",
+          "x": 576,
+          "y": 11.402863579903302,
+          "z": 0,
+          "rotation": 0,
+          "health": 100,
+          "ownerId": "local"
+        },
+        {
+          "id": 111,
+          "type": "foundation",
+          "x": 576,
+          "y": 11.402863579903302,
+          "z": 32,
+          "rotation": 0,
+          "health": 100,
+          "ownerId": "local"
+        },
+        {
+          "id": 113,
+          "type": "wallWindow",
+          "x": 512,
+          "y": 12.602863579903302,
+          "z": -48,
+          "rotation": 0,
+          "health": 100,
+          "ownerId": "local"
+        },
+        {
+          "id": 114,
+          "type": "wallWindow",
+          "x": 544,
+          "y": 12.602863579903302,
+          "z": -48,
+          "rotation": 0,
+          "health": 100,
+          "ownerId": "local"
+        },
+        {
+          "id": 115,
+          "type": "wallWindow",
+          "x": 576,
+          "y": 12.602863579903302,
+          "z": -48,
+          "rotation": 0,
+          "health": 100,
+          "ownerId": "local"
+        },
+        {
+          "id": 116,
+          "type": "wallWindow",
+          "x": 592,
+          "y": 12.602863579903302,
+          "z": -32,
+          "rotation": 1.5707963267948966,
+          "health": 100,
+          "ownerId": "local"
+        },
+        {
+          "id": 117,
+          "type": "wallWindow",
+          "x": 592,
+          "y": 12.602863579903302,
+          "z": 0,
+          "rotation": 1.5707963267948966,
+          "health": 100,
+          "ownerId": "local"
+        },
+        {
+          "id": 118,
+          "type": "wallWindow",
+          "x": 592,
+          "y": 12.602863579903302,
+          "z": 32,
+          "rotation": 1.5707963267948966,
+          "health": 100,
+          "ownerId": "local"
+        },
+        {
+          "id": 119,
+          "type": "wallWindow",
+          "x": 576,
+          "y": 12.602863579903302,
+          "z": 48,
+          "rotation": 3.141592653589793,
+          "health": 100,
+          "ownerId": "local"
+        },
+        {
+          "id": 120,
+          "type": "wallWindow",
+          "x": 544,
+          "y": 12.602863579903302,
+          "z": 48,
+          "rotation": 3.141592653589793,
+          "health": 100,
+          "ownerId": "local"
+        },
+        {
+          "id": 121,
+          "type": "wallWindow",
+          "x": 512,
+          "y": 12.602863579903302,
+          "z": 48,
+          "rotation": 3.141592653589793,
+          "health": 100,
+          "ownerId": "local"
+        },
+        {
+          "id": 122,
+          "type": "wallWindow",
+          "x": 496,
+          "y": 12.602863579903302,
+          "z": 32,
+          "rotation": -1.5707963267948966,
+          "health": 100,
+          "ownerId": "local"
+        },
+        {
+          "id": 123,
+          "type": "wallWindow",
+          "x": 496,
+          "y": 12.602863579903302,
+          "z": -32,
+          "rotation": -1.5707963267948966,
+          "health": 100,
+          "ownerId": "local"
+        },
+        {
+          "id": 125,
+          "type": "wallDoor",
+          "x": 496,
+          "y": 12.602863579903302,
+          "z": 0,
+          "rotation": -1.5707963267948966,
+          "health": 100,
+          "ownerId": "local"
+        },
+        {
+          "id": 127,
+          "type": "foundation",
+          "x": 512,
+          "y": 11.402863579903302,
+          "z": 32,
+          "rotation": 0,
+          "health": 100,
+          "ownerId": "local"
+        },
+        {
+          "id": 128,
+          "type": "floor",
+          "x": 512,
+          "y": 42.6028635799033,
+          "z": 32,
+          "rotation": 3.141592653589793,
+          "health": 100,
+          "ownerId": "local"
+        },
+        {
+          "id": 129,
+          "type": "floor",
+          "x": 512,
+          "y": 42.60286357990331,
+          "z": 0,
+          "rotation": 0,
+          "health": 100,
+          "ownerId": "local"
+        },
+        {
+          "id": 130,
+          "type": "floor",
+          "x": 512,
+          "y": 42.60286357990331,
+          "z": -32,
+          "rotation": 0,
+          "health": 100,
+          "ownerId": "local"
+        },
+        {
+          "id": 131,
+          "type": "floor",
+          "x": 544,
+          "y": 42.60286357990331,
+          "z": -32,
+          "rotation": 0,
+          "health": 100,
+          "ownerId": "local"
+        },
+        {
+          "id": 132,
+          "type": "floor",
+          "x": 576,
+          "y": 42.60286357990331,
+          "z": -32,
+          "rotation": 0,
+          "health": 100,
+          "ownerId": "local"
+        },
+        {
+          "id": 133,
+          "type": "floor",
+          "x": 576,
+          "y": 42.60286357990331,
+          "z": 0,
+          "rotation": 0,
+          "health": 100,
+          "ownerId": "local"
+        },
+        {
+          "id": 134,
+          "type": "floor",
+          "x": 576,
+          "y": 42.60286357990331,
+          "z": 32,
+          "rotation": 0,
+          "health": 100,
+          "ownerId": "local"
+        },
+        {
+          "id": 135,
+          "type": "floor",
+          "x": 544,
+          "y": 42.60286357990331,
+          "z": 32,
+          "rotation": 0,
+          "health": 100,
+          "ownerId": "local"
+        },
+        {
+          "id": 136,
+          "type": "floor",
+          "x": 544,
+          "y": 42.60286357990331,
+          "z": 0,
+          "rotation": 0,
+          "health": 100,
+          "ownerId": "local"
+        },
+        {
+          "id": 137,
+          "type": "chest",
+          "x": 576,
+          "y": 12.602863579903302,
+          "z": -32,
+          "rotation": 0,
+          "health": 100,
+          "ownerId": "local"
+        },
+        {
+          "id": 138,
+          "type": "lightPost",
+          "x": 576,
+          "y": 12.602863579903302,
+          "z": 0,
+          "rotation": 0,
+          "health": 100,
+          "ownerId": "local"
+        }
+      ],
+      "avatarPositions": {
+        "d032155c": {
+          "x": 2.12,
+          "z": 12.7,
+          "yaw": 0,
+          "run": false,
+          "isJumping": false,
+          "isJetpacking": false,
+          "isShooting": false,
+          "isAiming": false,
+          "isWalkingBackward": false,
+          "isStrafeLeft": false,
+          "isStrafeRight": false,
+          "isDead": false,
+          "tiltX": 0,
+          "tiltZ": 0,
+          "pitch": 0.42208187054130686,
+          "lift": 0
+        },
+        "66d62eba": {
+          "x": -118.66817591137138,
+          "z": -157.02531438022137,
+          "yaw": 0.3944103154786991,
+          "run": false,
+          "isJumping": false,
+          "isJetpacking": false,
+          "isShooting": false,
+          "isAiming": false,
+          "isWalkingBackward": false,
+          "isStrafeLeft": false,
+          "isStrafeRight": false,
+          "isDead": false,
+          "tiltX": 0,
+          "tiltZ": 0,
+          "pitch": 0.01824586441344359,
+          "lift": 6.548688309603965
+        },
+        "c9b513b1": {
+          "x": 552.320083680482,
+          "z": 18.33473448056285,
+          "yaw": -20.451633443849666,
+          "run": false,
+          "isJumping": false,
+          "isJetpacking": false,
+          "isShooting": false,
+          "isAiming": false,
+          "isWalkingBackward": false,
+          "isStrafeLeft": false,
+          "isStrafeRight": false,
+          "isDead": false,
+          "tiltX": 0,
+          "tiltZ": 0,
+          "pitch": 0.2102529700890758,
+          "lift": 18.9528635799033
+        },
+        "4afbf566": {
+          "x": -9.535775126112593,
+          "z": -121.54022593778043,
+          "yaw": 0.5359249906944733,
+          "run": false,
+          "isJumping": false,
+          "isJetpacking": false,
+          "isShooting": false,
+          "isAiming": false,
+          "isWalkingBackward": false,
+          "isStrafeLeft": false,
+          "isStrafeRight": false,
+          "isDead": false,
+          "tiltX": 0,
+          "tiltZ": 0,
+          "pitch": 0,
+          "lift": 3.952626337638532
+        }
+      },
       "games": []
     }
   ]

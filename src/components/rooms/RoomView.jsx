@@ -5,6 +5,7 @@
 import React, { useState, useEffect, useRef, useCallback, useMemo } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import ConnectFour3DView from '../games/ConnectFour3D/ConnectFour3DView';
+import { useBuildingStore } from '../games/ConnectFour3D/useBuildingStore';
 import './RoomView.css';
 
 /* ---- WS URL builder ---- */
@@ -142,6 +143,29 @@ export default function RoomView() {
           window.dispatchEvent(new CustomEvent('cf:visualizers_update', { detail: { visualizers: data.audioVisualizers } }));
         }
 
+        // Propagate building pieces from room snapshot to building store
+        // If server has pieces, use them. If server is empty but local has pieces,
+        // push local pieces UP to the server (migration from pre-server-sync era).
+        if (Array.isArray(data.buildingPieces)) {
+          const localPieces = useBuildingStore.getState().pieces || [];
+          if (data.buildingPieces.length > 0) {
+            // Server has authoritative data — use it
+            useBuildingStore.getState().syncPieces(data.buildingPieces);
+          } else if (localPieces.length > 0) {
+            // Server empty but local has pieces — push local to server
+            const ws = wsRef.current;
+            if (ws && ws.readyState === WebSocket.OPEN) {
+              try {
+                ws.send(JSON.stringify({
+                  type: 'building_sync',
+                  pieces: localPieces,
+                  timestamp: Date.now(),
+                }));
+              } catch {}
+            }
+          }
+        }
+
         // Seed remote avatar positions so they appear at their actual location, not origin
         if (data.avatarPositions && typeof data.avatarPositions === 'object') {
           if (!window.__CF_REMOTE_AVATARS__) window.__CF_REMOTE_AVATARS__ = {};
@@ -261,7 +285,27 @@ export default function RoomView() {
 
       case 'build_place':
       case 'build_destroy':
-        window.dispatchEvent(new CustomEvent('ws_building_msg', { detail: data }));
+        // Call store directly (same pattern as cubes_sync)
+        if (data.type === 'build_place' && data.piece) {
+          useBuildingStore.getState().addRemotePiece(data.piece);
+        }
+        if (data.type === 'build_destroy' && data.pieceId != null) {
+          useBuildingStore.getState().removeRemotePiece(data.pieceId);
+        }
+        break;
+
+      case 'building_sync':
+        // Full building state sync (same pattern as cubes_sync)
+        if (Array.isArray(data.pieces)) {
+          useBuildingStore.getState().syncPieces(data.pieces);
+        }
+        break;
+
+      case 'door_toggle':
+        // Remote player toggled a door
+        if (data.pieceId != null) {
+          useBuildingStore.getState().setDoorState(data.pieceId, data.isOpen);
+        }
         break;
 
       case 'visualizers_sync':
@@ -404,6 +448,14 @@ export default function RoomView() {
     }
     if (msg && msg.type === 'build_destroy') {
       try { ws.send(JSON.stringify({ type: 'build_destroy', pieceId: msg.pieceId })); } catch {}
+      return;
+    }
+    if (msg && msg.type === 'building_sync' && Array.isArray(msg.pieces)) {
+      try { ws.send(JSON.stringify({ type: 'building_sync', pieces: msg.pieces, timestamp: msg.timestamp || Date.now() })); } catch {}
+      return;
+    }
+    if (msg && msg.type === 'door_toggle') {
+      try { ws.send(JSON.stringify({ type: 'door_toggle', pieceId: msg.pieceId, isOpen: msg.isOpen })); } catch {}
       return;
     }
 

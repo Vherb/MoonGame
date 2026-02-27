@@ -55,6 +55,7 @@ function roomSnapshot(room, socketId) {
     players: playersSnapshot(room),
     placedCubes: room.placedCubes || [],
     audioVisualizers: room.audioVisualizers || [],
+    buildingPieces: room.buildingPieces || [],
     avatarPositions: room.avatarPositions || {},
     games: mgr.getRoomGames(room.code),
   };
@@ -349,21 +350,65 @@ function attachHandlers() {
 
         /* ---- Building system sync ---- */
         case 'build_place': {
-          const room = mgr.getRoomByWs(ws);
+          const room = mgr.addBuildingPiece(ws, data.piece);
           if (!room) break;
+          // Broadcast individual event + full sync to all others
           broadcastRoomExcept(room, ws, {
             type: 'build_place',
             piece: data.piece,
+          });
+          broadcastRoomExcept(room, ws, {
+            type: 'building_sync',
+            pieces: room.buildingPieces || [],
+            timestamp: Date.now(),
           });
           break;
         }
 
         case 'build_destroy': {
-          const room = mgr.getRoomByWs(ws);
+          const room = mgr.removeBuildingPiece(ws, data.pieceId);
           if (!room) break;
+          // Broadcast individual event + full sync to all others
           broadcastRoomExcept(room, ws, {
             type: 'build_destroy',
             pieceId: data.pieceId,
+          });
+          broadcastRoomExcept(room, ws, {
+            type: 'building_sync',
+            pieces: room.buildingPieces || [],
+            timestamp: Date.now(),
+          });
+          break;
+        }
+
+        case 'building_sync': {
+          // Full building state sync (like cubes_sync)
+          const meta2 = mgr.socketMeta.get(ws);
+          if (!meta2?.roomCode) break;
+          const room2 = mgr.rooms.get(meta2.roomCode);
+          if (!room2) break;
+          if (!Array.isArray(data.pieces)) break;
+          room2.buildingPieces = data.pieces;
+          room2.lastActivity = Date.now();
+          mgr._scheduleSave();
+          broadcastRoom(room2, {
+            type: 'building_sync',
+            pieces: data.pieces,
+            timestamp: data.timestamp || Date.now(),
+          });
+          break;
+        }
+
+        case 'door_toggle': {
+          // Broadcast door open/close state to all other players in room
+          const metaDoor = mgr.socketMeta.get(ws);
+          if (!metaDoor?.roomCode) break;
+          const roomDoor = mgr.rooms.get(metaDoor.roomCode);
+          if (!roomDoor) break;
+          broadcastRoomExcept(roomDoor, ws, {
+            type: 'door_toggle',
+            pieceId: data.pieceId,
+            isOpen: data.isOpen,
           });
           break;
         }

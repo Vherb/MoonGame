@@ -3135,7 +3135,7 @@ function ConnectFour3DView({ board, lastMove, colors, onSelectColumn, flip180 = 
     return (
       <div style={{
         position: 'fixed',
-        bottom: 32,
+        bottom: 200,
         right: 24,
         zIndex: 9990,
         display: 'flex',
@@ -5848,7 +5848,9 @@ function ConnectFour3DView({ board, lastMove, colors, onSelectColumn, flip180 = 
             {/* Resource nodes scattered across terrain */}
             <ResourceSpawner groundY={groundY} wsSend={onAvatarMove || null} />
             {/* Base building system — placed pieces + ghost preview */}
-            <BuildingSystem groundY={groundY} wsSend={onAvatarMove || null} />
+            <Suspense fallback={null}>
+              <BuildingSystem groundY={groundY} wsSend={onAvatarMove || null} />
+            </Suspense>
             {/* Giant moon sphere hovering off to the side */}
             <GiantMoonSphere position={[8000, 4000, -10000]} radius={2000} />
             {/* Simple staircase you can walk up */}

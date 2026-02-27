@@ -13,7 +13,7 @@ import {
   STAIR3_POS_X, STAIR3_POS_Z, STAIR3_BASE_Y, STAIR3_WIDTH, STAIR3_RUN, STAIR3_RISE, STAIR3_STEPS,
   STAIR3_PLATFORM_DEPTH, STAIR3_PLATFORM_WIDTH,
 } from './constants';
-import { getGroundHeightXZAtY, buildStairAABBsWorld, getTerrainHeightXZ, CURRENT_PLACED_CUBES, GIANT_MOON_SPHERE, getSphereSurfaceData, sphereBumpAt } from './terrainPhysics';
+import { getGroundHeightXZAtY, buildStairAABBsWorld, getTerrainHeightXZ, CURRENT_PLACED_CUBES, GIANT_MOON_SPHERE, getSphereSurfaceData, sphereBumpAt, checkBuildingWallCollision } from './terrainPhysics';
 import { useWeaponSystem } from './useWeaponSystem';
 import { FootstepAudio } from './audioComponents';
 import { useInventoryStore } from './useInventoryStore';
@@ -920,27 +920,60 @@ export function PlayerMover({ firstPersonMode = false, setFirstPersonMode = null
             fpsPos[2] + direction[2] * forwardOffset
           ];
         } else {
-          // Third-person: shoot from character position using camera aim direction
-          const avatar = window.__CF_LOCAL_AVATAR__ || {};
-          const camYaw = window.__CF_3RD_CAMERA_YAW__ || avatar.yaw || yawRef.current;
-          const camPitch = window.__CF_3RD_CAMERA_PITCH__ || 0;
-          // Use camera pitch for vertical aim (allows shooting up/down in 3rd person)
-          const cosPitch = Math.cos(camPitch);
-          direction = [
-            -cosPitch * Math.sin(camYaw),
-             Math.sin(camPitch) * 0.5, // dampen vertical aim slightly in 3rd person
-            -cosPitch * Math.cos(camYaw)
-          ];
-          
-          const weaponOffset = 2.5;
-          // Use ref world position for accurate height
-          const worldPos = new THREE.Vector3();
-          ref.current.getWorldPosition(worldPos);
-          shootPos = [
-            worldPos.x + direction[0] * weaponOffset,
-            worldPos.y + 5.0 + (avatar.lift || 0),
-            worldPos.z + direction[2] * weaponOffset
-          ];
+          // Third-person: shoot toward where the crosshair (screen center) points.
+          // The camera looks at smoothTarget; a ray from camera through that target
+          // gives us the world aim point.  Bullets spawn at character height and fly
+          // toward that aim point so they hit what the player sees under the crosshair.
+          const camPos  = window.__CF_3RD_CAM_POS__;
+          const camTgt  = window.__CF_3RD_CAM_TARGET__;
+          const avatar  = window.__CF_LOCAL_AVATAR__ || {};
+
+          if (camPos && camTgt) {
+            // Ray from camera through look-at target → aim point far ahead
+            const rayDir = [
+              camTgt[0] - camPos[0],
+              camTgt[1] - camPos[1],
+              camTgt[2] - camPos[2],
+            ];
+            const len = Math.sqrt(rayDir[0] * rayDir[0] + rayDir[1] * rayDir[1] + rayDir[2] * rayDir[2]);
+            if (len > 0.001) { rayDir[0] /= len; rayDir[1] /= len; rayDir[2] /= len; }
+            // Project aim point 500 units ahead of the camera
+            const aimDist = 500;
+            const aimPt = [
+              camPos[0] + rayDir[0] * aimDist,
+              camPos[1] + rayDir[1] * aimDist,
+              camPos[2] + rayDir[2] * aimDist,
+            ];
+            // Spawn bullet from character position
+            const worldPos = new THREE.Vector3();
+            ref.current.getWorldPosition(worldPos);
+            const spawnY = worldPos.y + 5.0 + (avatar.lift || 0);
+            shootPos = [worldPos.x, spawnY, worldPos.z];
+            // Direction from spawn point to aim point
+            direction = [
+              aimPt[0] - shootPos[0],
+              aimPt[1] - shootPos[1],
+              aimPt[2] - shootPos[2],
+            ];
+            const dLen = Math.sqrt(direction[0] * direction[0] + direction[1] * direction[1] + direction[2] * direction[2]);
+            if (dLen > 0.001) { direction[0] /= dLen; direction[1] /= dLen; direction[2] /= dLen; }
+          } else {
+            // Fallback: old method
+            const camYaw = window.__CF_3RD_CAMERA_YAW__ || avatar.yaw || yawRef.current;
+            const cosPitch = 1;
+            direction = [
+              -cosPitch * Math.sin(camYaw),
+              0,
+              -cosPitch * Math.cos(camYaw),
+            ];
+            const worldPos = new THREE.Vector3();
+            ref.current.getWorldPosition(worldPos);
+            shootPos = [
+              worldPos.x + direction[0] * 2.5,
+              worldPos.y + 5.0 + (avatar.lift || 0),
+              worldPos.z + direction[2] * 2.5,
+            ];
+          }
         }
         
         weaponSystem.shoot(shootPos, direction, characterId);
@@ -973,25 +1006,47 @@ export function PlayerMover({ firstPersonMode = false, setFirstPersonMode = null
           fpsPos[2] + direction[2] * forwardOffset
         ];
       } else {
-        // Third-person: shoot from character position using camera aim direction
-        const avatar = window.__CF_LOCAL_AVATAR__ || {};
-        const camYaw = window.__CF_3RD_CAMERA_YAW__ || avatar.yaw || yawRef.current;
-        const camPitch = window.__CF_3RD_CAMERA_PITCH__ || 0;
-        const cosPitch = Math.cos(camPitch);
-        direction = [
-          -cosPitch * Math.sin(camYaw),
-           Math.sin(camPitch) * 0.5,
-          -cosPitch * Math.cos(camYaw)
-        ];
-        
-        const weaponOffset = 2.5;
-        const worldPos = new THREE.Vector3();
-        ref.current.getWorldPosition(worldPos);
-        shootPos = [
-          worldPos.x + direction[0] * weaponOffset,
-          worldPos.y + 5.0 + (avatar.lift || 0),
-          worldPos.z + direction[2] * weaponOffset
-        ];
+        // Third-person: shoot toward where the crosshair (screen center) points.
+        const camPos  = window.__CF_3RD_CAM_POS__;
+        const camTgt  = window.__CF_3RD_CAM_TARGET__;
+        const avatar  = window.__CF_LOCAL_AVATAR__ || {};
+
+        if (camPos && camTgt) {
+          const rayDir = [
+            camTgt[0] - camPos[0],
+            camTgt[1] - camPos[1],
+            camTgt[2] - camPos[2],
+          ];
+          const len = Math.sqrt(rayDir[0] * rayDir[0] + rayDir[1] * rayDir[1] + rayDir[2] * rayDir[2]);
+          if (len > 0.001) { rayDir[0] /= len; rayDir[1] /= len; rayDir[2] /= len; }
+          const aimDist = 500;
+          const aimPt = [
+            camPos[0] + rayDir[0] * aimDist,
+            camPos[1] + rayDir[1] * aimDist,
+            camPos[2] + rayDir[2] * aimDist,
+          ];
+          const worldPos = new THREE.Vector3();
+          ref.current.getWorldPosition(worldPos);
+          const spawnY = worldPos.y + 5.0 + (avatar.lift || 0);
+          shootPos = [worldPos.x, spawnY, worldPos.z];
+          direction = [
+            aimPt[0] - shootPos[0],
+            aimPt[1] - shootPos[1],
+            aimPt[2] - shootPos[2],
+          ];
+          const dLen = Math.sqrt(direction[0] * direction[0] + direction[1] * direction[1] + direction[2] * direction[2]);
+          if (dLen > 0.001) { direction[0] /= dLen; direction[1] /= dLen; direction[2] /= dLen; }
+        } else {
+          const camYaw = window.__CF_3RD_CAMERA_YAW__ || avatar.yaw || yawRef.current;
+          direction = [-Math.sin(camYaw), 0, -Math.cos(camYaw)];
+          const worldPos = new THREE.Vector3();
+          ref.current.getWorldPosition(worldPos);
+          shootPos = [
+            worldPos.x + direction[0] * 2.5,
+            worldPos.y + 5.0 + (avatar.lift || 0),
+            worldPos.z + direction[2] * 2.5,
+          ];
+        }
       }
       
       weaponSystem.shoot(shootPos, direction, characterId);
@@ -1063,12 +1118,14 @@ export function PlayerMover({ firstPersonMode = false, setFirstPersonMode = null
     let turning = 0, moving = 0, strafing = 0;
   const leftHeld = !settingsMenuOpen && !!(p['ArrowLeft'] || p['a'] || p['A']);
   const rightHeld = !settingsMenuOpen && !!(p['ArrowRight'] || p['d'] || p['D']);
-  if (firstPersonMode) {
-    // FPS: A/D = strafe, W/S = forward/back
-    if (leftHeld) strafing -= 1;  // strafe left
-    if (rightHeld) strafing += 1;  // strafe right
+  // Whether the player is aiming/shooting in 3rd person (Fortnite-style strafe mode)
+  const aim3PP = !firstPersonMode && (isShootingRef.current || weaponSystem.isAiming);
+  if (firstPersonMode || aim3PP) {
+    // FPS or 3PP aiming: A/D = strafe
+    if (leftHeld) strafing -= 1;
+    if (rightHeld) strafing += 1;
   } else {
-    // 3rd person: A/D = turn
+    // 3rd person normal: A/D = turn
     if (leftHeld) turning += 1;
     if (rightHeld) turning -= 1;
   }
@@ -1085,8 +1142,16 @@ export function PlayerMover({ firstPersonMode = false, setFirstPersonMode = null
         if (gp.leftStickX !== 0) {
           strafing += gp.leftStickX; // Left stick X → strafe
         }
+      } else if (aim3PP) {
+        // 3PP aiming: left stick X = strafe, right stick X = turn character
+        if (gp.leftStickX !== 0) {
+          strafing += gp.leftStickX;
+        }
+        if (gp.rightStickX !== 0) {
+          turning -= gp.rightStickX * turnSensitivity;
+        }
       } else {
-        // 3rd person: both sticks turn character (right stick = primary turn)
+        // 3rd person normal: both sticks turn character
         if (gp.leftStickX !== 0) {
           turning -= gp.leftStickX * (turnSensitivity * 0.5);
         }
@@ -1123,11 +1188,11 @@ export function PlayerMover({ firstPersonMode = false, setFirstPersonMode = null
     setIsWalkingBackward(false);
     setIsWalking(false);
   }
-  // Track strafe state for rifle-strafe animations (FPS mode only)
+  // Track strafe state for rifle-strafe animations (FPS or 3PP aiming)
   // Use a dead zone and suppress strafe when forward/back movement dominates
   const strafeMag = Math.abs(strafing);
   const moveMag = Math.abs(moving);
-  const strafeActive = firstPersonMode && strafeMag > 0.45 && strafeMag > moveMag;
+  const strafeActive = (firstPersonMode || aim3PP) && strafeMag > 0.45 && strafeMag > moveMag;
   const strafeL = strafeActive && strafing < 0;
   const strafeR = strafeActive && strafing > 0;
   if (strafeL !== isStrafeLeft) setIsStrafeLeft(strafeL);
@@ -1135,8 +1200,8 @@ export function PlayerMover({ firstPersonMode = false, setFirstPersonMode = null
 
     // Apply incremental turn on tap (discrete nudge), plus continuous when held
   const turnStep = 0.12; // ~6.9° per tap
-    if (!settingsMenuOpen && !firstPersonMode) {
-      // Only apply tap-turn in 3rd person; FPS uses A/D for strafe
+    if (!settingsMenuOpen && !firstPersonMode && !aim3PP) {
+      // Only apply tap-turn in 3rd person when not aiming; FPS/aim uses A/D for strafe
       if (jp['ArrowLeft'] || jp['a'] || jp['A']) { yawRef.current += turnStep; }
       if (jp['ArrowRight'] || jp['d'] || jp['D']) { yawRef.current -= turnStep; }
     }
@@ -1149,6 +1214,12 @@ export function PlayerMover({ firstPersonMode = false, setFirstPersonMode = null
     // In FPS mode, read the final camera yaw published by CameraFollower
     // CameraFollower computes totalYaw = behindYaw + horizontalAngle and writes it each frame
     // We use it directly for character rotation and movement — no absorb/reset needed
+    if (aim3PP) {
+      // 3PP aiming/shooting: keep yawRef in sync with camera direction so that
+      // switching to FPS doesn't snap to a stale angle.
+      const camY = window.__CF_3RD_CAMERA_YAW__;
+      if (camY != null) yawRef.current = camY;
+    }
     const effYaw = firstPersonMode
       ? (window.__CF_FPS_CAMERA_YAW__ ?? yawRef.current ?? 0)
       : (yawRef.current || 0);
@@ -1157,9 +1228,9 @@ export function PlayerMover({ firstPersonMode = false, setFirstPersonMode = null
     if (sphereBlendRef.current < 0.01) {
       ref.current.rotation.y = effYaw;
     }
-    // Update turning state flags for animations - disabled in FPS and when menu open
-    const turningLeftNow = !firstPersonMode && !settingsMenuOpen && ((leftHeld || gp.leftStickX < -0.3 || gp.rightStickX < -0.3) && moving === 0);
-    const turningRightNow = !firstPersonMode && !settingsMenuOpen && ((rightHeld || gp.leftStickX > 0.3 || gp.rightStickX > 0.3) && moving === 0);
+    // Update turning state flags for animations - disabled in FPS, aim mode, and when menu open
+    const turningLeftNow = !firstPersonMode && !aim3PP && !settingsMenuOpen && ((leftHeld || gp.leftStickX < -0.3 || gp.rightStickX < -0.3) && moving === 0);
+    const turningRightNow = !firstPersonMode && !aim3PP && !settingsMenuOpen && ((rightHeld || gp.leftStickX > 0.3 || gp.rightStickX > 0.3) && moving === 0);
     setIsTurningLeft(turningLeftNow);
     setIsTurningRight(turningRightNow);
 
@@ -1184,7 +1255,7 @@ export function PlayerMover({ firstPersonMode = false, setFirstPersonMode = null
     const jetpackUnlocked = useInventoryStore.getState().hasEffect('enableJetpack');
     const fKeyHeld = !!(pressed.current['f'] || pressed.current['F']);
     const spaceHeld = !!pressed.current['Space'];
-    const aButtonHeld = gp.aButton || false; // A button held (not just pressed)
+    const aButtonHeld = (gp.aButton || false) && !window.__CF_BUILDING_STATE__?.buildMode; // suppress in build mode (A = place piece)
     const jetpackHoldInput = (spaceHeld || aButtonHeld || fKeyHeld) ? 1.0 : 0;
     const jetpackInput = (!settingsMenuOpen && jetpackUnlocked) ? jetpackHoldInput : 0;
     const fuel = jetpackFuelRef.current;
@@ -1410,7 +1481,7 @@ export function PlayerMover({ firstPersonMode = false, setFirstPersonMode = null
         if (isJumping || jumpY > 0.001) {
           let vy;
           if (isJetpackingRef.current) {
-            const jetInput = (pressed.current['f'] || pressed.current['F'] || pressed.current['Space'] || gp.aButton) ? 1.0 : 0;
+            const jetInput = (pressed.current['f'] || pressed.current['F'] || pressed.current['Space'] || (gp.aButton && !window.__CF_BUILDING_STATE__?.buildMode)) ? 1.0 : 0;
             if (jetInput > 0.1) {
               vy = jumpVyRef.current + (JETPACK_THRUST * jetInput + JETPACK_GRAVITY) * dt;
             } else {
@@ -1419,7 +1490,7 @@ export function PlayerMover({ firstPersonMode = false, setFirstPersonMode = null
             vy = Math.max(-JETPACK_MAX_VY, Math.min(JETPACK_MAX_VY, vy));
             const hasStickInput = Math.abs(moving) > 0.15 || Math.abs(strafing) > 0.15;
             const descending = vy < -1;
-            const jetHeld = (pressed.current['f'] || pressed.current['F'] || pressed.current['Space'] || gp.aButton) ? 1.0 : 0;
+            const jetHeld = (pressed.current['f'] || pressed.current['F'] || pressed.current['Space'] || (gp.aButton && !window.__CF_BUILDING_STATE__?.buildMode)) ? 1.0 : 0;
             setIsFalling(descending && !hasStickInput && jetHeld < 0.1);
           } else {
             vy = jumpVyRef.current + curGravityRef.current * dt;
@@ -1480,11 +1551,11 @@ export function PlayerMover({ firstPersonMode = false, setFirstPersonMode = null
   if (!sphereHandled) {
 
   // Apply forward/back + strafe movement using facing direction
-    // effYaw already contains camera yaw in FPS mode, character yaw in 3rd person
-    const moveYaw = effYaw;
+    // When aiming in 3PP, move relative to camera direction (Fortnite-style)
+    const moveYaw = aim3PP ? (window.__CF_3RD_CAMERA_YAW__ || effYaw) : effYaw;
     if (moving !== 0 || strafing !== 0) {
-      // Forward direction based on effYaw (camera yaw in FPS, character yaw in 3rd person)
-      const fwd = new THREE.Vector3(0, 0, -1).applyAxisAngle(new THREE.Vector3(0, 1, 0), effYaw);
+      // Forward direction based on moveYaw (camera yaw when aiming, character yaw otherwise)
+      const fwd = new THREE.Vector3(0, 0, -1).applyAxisAngle(new THREE.Vector3(0, 1, 0), moveYaw);
       fwd.y = 0; fwd.normalize();
       // Right direction (perpendicular to forward on XZ plane)
       const right = new THREE.Vector3(-fwd.z, 0, fwd.x); // cross(up, fwd) = true right
@@ -1789,11 +1860,15 @@ export function PlayerMover({ firstPersonMode = false, setFirstPersonMode = null
       };
       // Allow passing through table rect when sufficiently airborne or already on table
   const allowRectPass = onTable || ((platformLift + jumpY) >= (tableTopLift * 0.6));
+      const feetYForWall = localGroundY + platformLift + jumpY;
       const shouldBlock = (xw, zw) => {
         // Skip all collisions while jetpacking (fly over everything)
         if (isJetpackingRef.current) return false;
         const hit = intersectsAny(xw, zw);
-        return hit.stair || (hit.rect && !allowRectPass);
+        if (hit.stair || (hit.rect && !allowRectPass)) return true;
+        // Building wall collision — block movement through non-walkable building pieces
+        if (checkBuildingWallCollision(xw, zw, feetYForWall, 14, collisionRadius)) return true;
+        return false;
       };
       if (shouldBlock(wxTry, wzTry)) {
         // Wall sliding like modern games: try to maintain movement along the wall
@@ -2301,9 +2376,13 @@ export function PlayerMover({ firstPersonMode = false, setFirstPersonMode = null
             return { rect: rectHit, stair: stairHit };
           };
           const allowRectPass = onTable || ((platformLift + jumpY) >= (tableTopLift * 0.6));
+          const feetYForWallClick = localGroundY + platformLift + jumpY;
           const shouldBlock = (xw, zw) => {
             const hit = intersectsAny(xw, zw);
-            return hit.stair || (hit.rect && !allowRectPass);
+            if (hit.stair || (hit.rect && !allowRectPass)) return true;
+            // Building wall collision
+            if (checkBuildingWallCollision(xw, zw, feetYForWallClick, 14, collisionRadius)) return true;
+            return false;
           };
           if (shouldBlock(wxTry, wzTry)) {
             // Wall sliding like modern games: try to maintain movement along the wall
@@ -2505,7 +2584,7 @@ export function PlayerMover({ firstPersonMode = false, setFirstPersonMode = null
       let vy;
       // ── Jetpack thrust integration ──
       if (isJetpackingRef.current) {
-        const jetInput = (pressed.current['f'] || pressed.current['F'] || pressed.current['Space'] || gp.aButton) ? 1.0 : 0;
+        const jetInput = (pressed.current['f'] || pressed.current['F'] || pressed.current['Space'] || (gp.aButton && !window.__CF_BUILDING_STATE__?.buildMode)) ? 1.0 : 0;
         if (jetInput > 0.1) {
           vy = jumpVyRef.current + (JETPACK_THRUST * jetInput + JETPACK_GRAVITY) * dt;
         } else {
@@ -2755,7 +2834,8 @@ export function PlayerMover({ firstPersonMode = false, setFirstPersonMode = null
   const localYaw = yawRef.current || 0;
   const broadcastYaw = firstPersonMode ? effYaw : localYaw;
   // In FPS mode the player is inherently aiming (holding rifle), so remote players see rifle stance
-  const aimingNow = !!(firstPersonMode || weaponSystem.isAiming);
+  // Also count shooting as aiming so remote players see the rifle stance during fire
+  const aimingNow = !!(firstPersonMode || weaponSystem.isAiming || isShootingRef.current);
   // Publish local avatar pose globally for follow camera (uses base yaw, CameraFollower adds orbit)
   const _sphereOn = sphereModeRef.current >= 0.5;
   const _sphereBlend = sphereBlendRef.current;

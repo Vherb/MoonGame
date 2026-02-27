@@ -1,5 +1,5 @@
 {
-  "savedAt": 1772181004786,
+  "savedAt": 1772181101731,
   "rooms": [
     {
       "code": "MOON-GXCK",
@@ -8,16 +8,16 @@
       "hostId": 14,
       "hostUsername": "poop",
       "createdAt": 1772137871913,
-      "lastActivity": 1772181004277,
+      "lastActivity": 1772181101529,
       "players": [
         {
-          "socketId": "969b1182",
+          "socketId": "c6777ba2",
           "userId": 2,
           "username": "vherb",
           "character": "astronaut",
           "avatar": "rocket",
           "color": "#6366f1",
-          "joinedAt": 1772180984416
+          "joinedAt": 1772181101529
         }
       ],
       "placedCubes": [],
@@ -796,24 +796,6 @@
           "tiltZ": 0,
           "pitch": 0.4263018919945833,
           "lift": 19.219432491908787
-        },
-        "969b1182": {
-          "x": 194.95317297062746,
-          "z": -25.06806183993745,
-          "yaw": -1.2571883086301958,
-          "run": false,
-          "isJumping": false,
-          "isJetpacking": false,
-          "isShooting": false,
-          "isAiming": false,
-          "isWalkingBackward": false,
-          "isStrafeLeft": false,
-          "isStrafeRight": false,
-          "isDead": false,
-          "tiltX": -1.1567471024240314e-22,
-          "tiltZ": -9.306577131195675e-26,
-          "pitch": -0.0832010362215974,
-          "lift": 6.330459617155862
         }
       },
       "games": []

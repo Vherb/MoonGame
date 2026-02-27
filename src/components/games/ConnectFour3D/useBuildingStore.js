@@ -657,8 +657,23 @@ export const useBuildingStore = create((set, get) => ({
       }
     }
 
+    // Cascade: if removing a turretBase, also remove any turretTop snapped on it
+    const cascadeIds = new Set([pieceId]);
+    if (pieceDef.isTurretBase) {
+      const baseDims = pieceDef.dims || [8, 6, 8];
+      for (const p of s.pieces) {
+        const topDef = PIECE_TYPES[p.type];
+        if (!topDef || !topDef.isTurretTop) continue;
+        const dx = Math.abs(p.x - piece.x);
+        const dz = Math.abs(p.z - piece.z);
+        if (dx < baseDims[0] && dz < baseDims[2]) {
+          cascadeIds.add(p.id);
+        }
+      }
+    }
+
     set(prev => {
-      const updated = prev.pieces.filter(p => p.id !== pieceId);
+      const updated = prev.pieces.filter(p => !cascadeIds.has(p.id));
       saveBuilding(updated);
       return { pieces: updated };
     });

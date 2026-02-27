@@ -1,5 +1,5 @@
 {
-  "savedAt": 1772181101731,
+  "savedAt": 1772181497260,
   "rooms": [
     {
       "code": "MOON-GXCK",
@@ -8,16 +8,16 @@
       "hostId": 14,
       "hostUsername": "poop",
       "createdAt": 1772137871913,
-      "lastActivity": 1772181101529,
+      "lastActivity": 1772181496746,
       "players": [
         {
-          "socketId": "c6777ba2",
+          "socketId": "d14c5e49",
           "userId": 2,
           "username": "vherb",
           "character": "astronaut",
           "avatar": "rocket",
           "color": "#6366f1",
-          "joinedAt": 1772181101529
+          "joinedAt": 1772181215525
         }
       ],
       "placedCubes": [],
@@ -642,11 +642,11 @@
           ]
         },
         {
-          "id": 188,
+          "id": 193,
           "type": "turretBase",
-          "x": 448,
-          "y": 5.698498969550608,
-          "z": -224,
+          "x": 228.03245924902615,
+          "y": -0.48847547585141093,
+          "z": -131.3890836596116,
           "rotation": 0,
           "health": 100,
           "ownerId": "local",
@@ -658,11 +658,11 @@
           ]
         },
         {
-          "id": 189,
+          "id": 194,
           "type": "turretTop",
-          "x": 448,
-          "y": 11.698498969550608,
-          "z": -224,
+          "x": 228.03245924902615,
+          "y": 5.511524524148589,
+          "z": -131.3890836596116,
           "rotation": 0,
           "health": 100,
           "ownerId": "local",
@@ -674,11 +674,27 @@
           ]
         },
         {
-          "id": 191,
+          "id": 195,
+          "type": "turretBase",
+          "x": 416,
+          "y": 11.636099915806058,
+          "z": 96,
+          "rotation": 0,
+          "health": 100,
+          "ownerId": "local",
+          "modelPath": "/models/props/guns/lazer_turret/bottom/Meshy_AI_Azure_Sentinel_0227064808_texture.fbx",
+          "modelScale": [
+            0.08,
+            0.08,
+            0.08
+          ]
+        },
+        {
+          "id": 196,
           "type": "turretTop",
-          "x": 224,
-          "y": 8.988811203828673,
-          "z": -32,
+          "x": 416,
+          "y": 17.636099915806057,
+          "z": 96,
           "rotation": 0,
           "health": 100,
           "ownerId": "local",
@@ -690,11 +706,27 @@
           ]
         },
         {
-          "id": 192,
+          "id": 197,
+          "type": "turretBase",
+          "x": 546.5629889851131,
+          "y": 43.80286357990331,
+          "z": 7.383388162387656,
+          "rotation": 0,
+          "health": 100,
+          "ownerId": "local",
+          "modelPath": "/models/props/guns/lazer_turret/bottom/Meshy_AI_Azure_Sentinel_0227064808_texture.fbx",
+          "modelScale": [
+            0.08,
+            0.08,
+            0.08
+          ]
+        },
+        {
+          "id": 198,
           "type": "turretTop",
-          "x": 224,
-          "y": 8.988811203828673,
-          "z": -32,
+          "x": 546.5629889851131,
+          "y": 49.80286357990331,
+          "z": 7.383388162387656,
           "rotation": 0,
           "health": 100,
           "ownerId": "local",
@@ -796,6 +828,42 @@
           "tiltZ": 0,
           "pitch": 0.4263018919945833,
           "lift": 19.219432491908787
+        },
+        "c6777ba2": {
+          "x": 422.0287890608768,
+          "z": -206.11682225071127,
+          "yaw": -0.8956197364078645,
+          "run": false,
+          "isJumping": false,
+          "isJetpacking": false,
+          "isShooting": false,
+          "isAiming": false,
+          "isWalkingBackward": false,
+          "isStrafeLeft": false,
+          "isStrafeRight": false,
+          "isDead": false,
+          "tiltX": -4.850700879903301e-45,
+          "tiltZ": 9.650461908839045e-46,
+          "pitch": 0.1401897355321197,
+          "lift": 13.114285122393422
+        },
+        "d14c5e49": {
+          "x": 457.1977596251826,
+          "z": -2.1270109717424788,
+          "yaw": -2.6795309414730677,
+          "run": false,
+          "isJumping": false,
+          "isJetpacking": false,
+          "isShooting": false,
+          "isAiming": false,
+          "isWalkingBackward": false,
+          "isStrafeLeft": false,
+          "isStrafeRight": false,
+          "isDead": false,
+          "tiltX": -2.382398183295232e-64,
+          "tiltZ": 7.28352052388178e-65,
+          "pitch": 0.13506385129907483,
+          "lift": 16.09730142522466
         }
       },
       "games": []

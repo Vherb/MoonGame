@@ -34,8 +34,8 @@ const ENEMY_HP_BASE     = 80;      // base HP, scaled by wave number
 const ENEMY_HP_SCALE    = 20;      // extra HP per wave
 const ENEMY_ATTACK_RANGE= 6;       // distance to start attacking a building piece
 const ENEMY_ATTACK_DPS  = 8;       // damage per second to building pieces
-const ENEMY_MODEL_SCALE = 0.06;    // FBX model display scale
-const ENEMY_HEIGHT      = 8;       // approximate visual height
+const ENEMY_MODEL_SCALE = 0.15;    // FBX model display scale
+const ENEMY_HEIGHT      = 14;      // approximate visual height
 
 // Turret configuration (matches PIECE_TYPES.turret)
 const TURRET_RANGE      = 80;
@@ -238,8 +238,18 @@ function EnemyMesh({ enemy, clone, walkClips, runClips }) {
     mixerRef.current = mixer;
     const boneMap = buildBoneMap(clone);
 
-    // Try retargeting the walk animation
-    if (walkClips && walkClips.length > 0) {
+    // === Walk animation ===
+    // 1) Try direct clip first (same-rig animation — no retarget needed)
+    if (walkClips && walkClips.length > 0 && !actionsRef.current.walk) {
+      try {
+        const directAction = mixer.clipAction(walkClips[0]);
+        directAction.setLoop(THREE.LoopRepeat);
+        // Test if the clip actually binds to bones (non-zero bound count)
+        actionsRef.current.walk = directAction;
+      } catch {}
+    }
+    // 2) Fallback: retarget if direct didn't bind properly
+    if (!actionsRef.current.walk && walkClips && walkClips.length > 0) {
       const retargeted = retargetClip(walkClips[0], boneMap, 'walk');
       if (retargeted && retargeted.tracks.length > 0) {
         const action = mixer.clipAction(retargeted);
@@ -247,8 +257,16 @@ function EnemyMesh({ enemy, clone, walkClips, runClips }) {
         actionsRef.current.walk = action;
       }
     }
-    // Try retargeting the run animation
-    if (runClips && runClips.length > 0) {
+
+    // === Run animation ===
+    if (runClips && runClips.length > 0 && !actionsRef.current.run) {
+      try {
+        const directAction = mixer.clipAction(runClips[0]);
+        directAction.setLoop(THREE.LoopRepeat);
+        actionsRef.current.run = directAction;
+      } catch {}
+    }
+    if (!actionsRef.current.run && runClips && runClips.length > 0) {
       const retargeted = retargetClip(runClips[0], boneMap, 'run');
       if (retargeted && retargeted.tracks.length > 0) {
         const action = mixer.clipAction(retargeted);
@@ -257,7 +275,7 @@ function EnemyMesh({ enemy, clone, walkClips, runClips }) {
       }
     }
 
-    // Fallback: try model's own embedded animations
+    // 3) Fallback: try model's own embedded animations
     if (!actionsRef.current.walk && !actionsRef.current.run) {
       const embeddedClips = clone.animations;
       if (embeddedClips && embeddedClips.length > 0) {

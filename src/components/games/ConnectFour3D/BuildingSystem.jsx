@@ -475,10 +475,10 @@ function TurretTopTracker({ piece, children }) {
     const target = targets && targets[piece.id];
     if (target) {
       // Calculate desired Y rotation to face target
-      // Subtract PI/2 to compensate for model's forward being along X-axis
+      // Add PI/2 to compensate for model's forward being along X-axis
       const dx = target.x - piece.x;
       const dz = target.z - piece.z;
-      const desiredY = Math.atan2(dx, dz) - Math.PI / 2;
+      const desiredY = Math.atan2(dx, dz) + Math.PI / 2;
       // Smooth lerp toward target rotation
       const current = groupRef.current.rotation.y;
       let diff = desiredY - current;

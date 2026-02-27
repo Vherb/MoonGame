@@ -553,6 +553,10 @@ export const useBuildingStore = create((set, get) => ({
     set(prev => {
       const updated = [...prev.pieces, newPiece];
       saveBuilding(updated);
+      // Auto-select model props so controller transforms work immediately
+      if (pieceDef.isModel) {
+        return { pieces: updated, selectedPropId: newPiece.id };
+      }
       return { pieces: updated };
     });
     return newPiece;

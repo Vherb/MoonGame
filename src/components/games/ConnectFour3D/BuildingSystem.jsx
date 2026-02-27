@@ -207,7 +207,7 @@ function getPieceGeometry(pieceType) {
    ================================================================ */
 const SNAP_DISTANCE = 18.0; // max distance to snap to a point
 
-function findBestSnap(ghostPos, ghostRot, selectedPiece, placedPieces, playerPos, lookYaw) {
+function findBestSnap(ghostPos, ghostRot, selectedPiece, placedPieces, playerPos, lookYaw, playerY) {
   let bestSnap = null;
   let bestScore = Infinity;
 
@@ -224,17 +224,18 @@ function findBestSnap(ghostPos, ghostRot, selectedPiece, placedPieces, playerPos
       const dist = Math.sqrt(dx * dx + dz * dz);
       if (dist > SNAP_DISTANCE) continue;
 
+      // Vertical distance penalty — strongly prefer snap points near the player's Y level
+      // This ensures when on the 2nd floor we snap to 2nd floor points, not ground floor
+      const dy = Math.abs((playerY || ghostPos[1]) - sp.position[1]);
+      const yPenalty = dy * 0.8; // strong vertical bias
+
       // Directional score: prefer snap points that are in front of the player
-      // in the direction they're looking. Compute dot product of
-      // (snap - player) with lookDir. Higher dot = more aligned = lower score.
       const toSnapX = sp.position[0] - playerPos[0];
       const toSnapZ = sp.position[2] - playerPos[1]; // playerPos is [x, z]
       const toSnapLen = Math.sqrt(toSnapX * toSnapX + toSnapZ * toSnapZ) || 1;
       const dot = (toSnapX * lookDirX + toSnapZ * lookDirZ) / toSnapLen; // [-1, 1]
-      // Score: distance penalized when snap is NOT in look direction
-      // dot=1 (perfectly ahead) → penalty=0, dot=-1 (behind) → penalty=SNAP_DISTANCE
       const dirPenalty = (1 - dot) * 0.5 * SNAP_DISTANCE;
-      const score = dist + dirPenalty;
+      const score = dist + dirPenalty + yPenalty;
 
       if (score < bestScore) {
         bestScore = score;
@@ -763,10 +764,14 @@ export default function BuildingSystem({ groundY, wsSend }) {
     const terrainY = getTerrainHeightXZ(rawX, rawZ);
     const baseY = (groundY || 0) + Math.max(0, terrainY);
 
+    // Player's actual world Y position (includes platform lift from standing on buildings)
+    const playerLift = avatar.lift || 0;
+    const playerWorldY = (groundY || 0) + playerLift;
+
     const currentRot = ghostRotRef.current;
 
-    // Check for snap points on existing pieces (with directional bias)
-    const snap = findBestSnap([rawX, baseY, rawZ], currentRot, selectedPiece, pieces, [px, pz], yaw);
+    // Check for snap points on existing pieces (with directional bias + vertical level preference)
+    const snap = findBestSnap([rawX, baseY, rawZ], currentRot, selectedPiece, pieces, [px, pz], yaw, playerWorldY);
 
     let finalPos, finalRot, isValid;
 
@@ -994,50 +999,62 @@ export default function BuildingSystem({ groundY, wsSend }) {
   }, [buildMode, placePiece, removePiece, cyclePiece, wsSend, deleteTargetedPiece]);
 
   // ── Door interaction: press X near a wallDoor to toggle it (works outside build mode) ──
+  // Also polls gamepad X button for controller support
+  const gpDoorPrev = useRef(false);
+  const toggleNearestDoor = useCallback(() => {
+    const DOOR_INTERACT_RANGE = 50;
+    const state = useBuildingStore.getState();
+    if (state.buildMode) return; // build mode X has its own handler
+
+    const avatar = window.__CF_LOCAL_AVATAR__;
+    if (!avatar) return;
+
+    const doors = state.pieces.filter(p => p.type === 'wallDoor');
+    let closestDoor = null, closestDist = DOOR_INTERACT_RANGE;
+    for (const p of doors) {
+      const dx = (avatar.x || 0) - p.x;
+      const dz = (avatar.z || 0) - p.z;
+      const dist = Math.sqrt(dx * dx + dz * dz);
+      if (dist < closestDist) {
+        closestDist = dist;
+        closestDoor = p;
+      }
+    }
+    if (!closestDoor) return;
+
+    const wasOpen = !!state.doorStates[closestDoor.id];
+    state.toggleDoor(closestDoor.id);
+    if (wsSend) {
+      try { wsSend({ type: 'door_toggle', pieceId: closestDoor.id, isOpen: !wasOpen }); } catch {}
+    }
+  }, [wsSend]);
+
+  // Keyboard X for doors
   useEffect(() => {
-    const DOOR_INTERACT_RANGE = 50; // generous range since GRID_SIZE is 32
     const onDoorKey = (e) => {
       if (e.key.toLowerCase() !== 'x') return;
       if (e.target.tagName === 'INPUT' || e.target.tagName === 'TEXTAREA') return;
-      // If in build mode, let the build-mode handler deal with X
-      const state = useBuildingStore.getState();
-      if (state.buildMode) return;
-
-      const avatar = window.__CF_LOCAL_AVATAR__;
-      console.log('[Door] X pressed. Avatar:', avatar ? { x: avatar.x, z: avatar.z } : 'null');
-      if (!avatar) return;
-
-      // Find the closest wallDoor piece within interaction range
-      const allPieces = state.pieces;
-      const doors = allPieces.filter(p => p.type === 'wallDoor');
-      console.log('[Door] Found', doors.length, 'wallDoor pieces. Total pieces:', allPieces.length);
-
-      let closestDoor = null, closestDist = DOOR_INTERACT_RANGE;
-      for (const p of doors) {
-        const dx = (avatar.x || 0) - p.x;
-        const dz = (avatar.z || 0) - p.z;
-        const dist = Math.sqrt(dx * dx + dz * dz);
-        console.log('[Door] Door id:', p.id, 'at', { x: p.x, z: p.z }, 'dist:', dist.toFixed(1));
-        if (dist < closestDist) {
-          closestDist = dist;
-          closestDoor = p;
-        }
-      }
-      if (!closestDoor) {
-        console.log('[Door] No door within range', DOOR_INTERACT_RANGE);
-        return;
-      }
-
-      console.log('[Door] Toggling door', closestDoor.id, 'dist:', closestDist.toFixed(1));
-      const wasOpen = !!state.doorStates[closestDoor.id];
-      state.toggleDoor(closestDoor.id);
-      if (wsSend) {
-        try { wsSend({ type: 'door_toggle', pieceId: closestDoor.id, isOpen: !wasOpen }); } catch {}
-      }
+      toggleNearestDoor();
     };
     window.addEventListener('keydown', onDoorKey);
     return () => window.removeEventListener('keydown', onDoorKey);
-  }, [wsSend]);
+  }, [toggleNearestDoor]);
+
+  // Gamepad X button for doors (polled via useFrame, outside build mode)
+  useFrame(() => {
+    const state = useBuildingStore.getState();
+    if (state.buildMode) { gpDoorPrev.current = false; return; }
+
+    const gamepads = navigator.getGamepads ? navigator.getGamepads() : [];
+    const gp = gamepads[0] || gamepads[1] || gamepads[2] || gamepads[3] || null;
+    if (!gp) return;
+
+    const xBtn = gp.buttons[2]?.pressed || false;
+    if (xBtn && !gpDoorPrev.current) {
+      toggleNearestDoor();
+    }
+    gpDoorPrev.current = xBtn;
+  });
 
   // Remote build events are handled directly in RoomView → useBuildingStore
   // (avoids Suspense race condition with texture loading)

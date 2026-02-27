@@ -399,6 +399,9 @@ export function PlayerMover({ firstPersonMode = false, setFirstPersonMode = null
       if (backButtonPressed && setShowEditMenu) {
         setShowEditMenu(prev => !prev);
       }
+
+      // Check if prop is being edited in build mode — suppresses D-pad, LB/RB, LT/RT, Y
+      const propEditing = window.__CF_BUILDING_STATE__?.propEditing || false;
       
       // D-pad Right button (button 15) - horizontal menu navigation when in section, or toggle chat UI
       // Skip when prop editing
@@ -462,7 +465,6 @@ export function PlayerMover({ firstPersonMode = false, setFirstPersonMode = null
       
       // D-pad Up button (button 12) - menu navigation when edit menu open, camera toggle when closed
       // Skip when prop is being edited in build mode (SelectedPropGizmo owns D-pad)
-      const propEditing = window.__CF_BUILDING_STATE__?.propEditing || false;
       const dpadUpNow = gamepad.buttons[12]?.pressed || false;
       const dpadUpPressed = dpadUpNow && !gamepadState.current.dpadUp;
       gamepadState.current.dpadUp = dpadUpNow;

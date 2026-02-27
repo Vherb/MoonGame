@@ -8,10 +8,10 @@ import { useFrame, useThree } from '@react-three/fiber';
 import * as THREE from 'three';
 import { ROWS, CELL, GAP, GROUND_CLEAR } from './constants';
 
-// ── Shoulder offset constants ──
-const HIP_SHOULDER_RIGHT = 3;   // permanent slight right offset in 3PP (Fortnite-style)
-const AIM_SHOULDER_RIGHT = 10;  // full over-the-shoulder offset when aiming (LT)
-const AIM_DISTANCE = 20;        // closer zoom when aiming
+// ── Over-the-shoulder aim constants (LT only, no permanent offset) ──
+const AIM_SHOULDER_RIGHT = 8;   // camera shifts right when aiming so character is on left of screen
+const AIM_TARGET_RIGHT = 8;     // look-at target also shifts right so crosshair points PAST character
+const AIM_DISTANCE = 25;        // closer zoom when aiming
 const AIM_HEIGHT_OFFSET = 2;    // slightly higher when aiming
 const SHOULDER_BLEND_SPEED = 6.0; // ~0.17s to fully blend
 
@@ -165,8 +165,9 @@ export default function CameraFollower({
         if (rightX !== 0 || rightY !== 0) {
           lastManualControlTime.current = Date.now();
 
-          // Horizontal: right stick orbits camera in BOTH FPV and 3PP (Fortnite-style)
-          if (rightX !== 0) {
+          // Horizontal: right stick orbits camera in FPV only
+          // In 3PP, right stick turns the character (handled by PlayerMover)
+          if (firstPersonMode && rightX !== 0) {
             horizontalAngle.current -= rightX * 2.0 * dt;
           }
 
@@ -358,13 +359,15 @@ export default function CameraFollower({
       const desiredCameraPos = new THREE.Vector3(msg.x, cameraPosY, msg.z)
         .addScaledVector(forward, forwardOffset);
 
-      // ── Shoulder right-offset (Fortnite-style) ──
-      // Always apply a small right offset in 3PP so crosshair looks past the character,
-      // increasing to full over-the-shoulder when aiming (LT).
-      if (!firstPersonMode) {
-        const shoulderRight = HIP_SHOULDER_RIGHT + sb * (AIM_SHOULDER_RIGHT - HIP_SHOULDER_RIGHT);
+      // ── Over-the-shoulder aim (LT only) ──
+      // No permanent offset — camera stays centered behind character normally.
+      // When aiming (LT), shift camera AND look-at target to the right so the
+      // character appears on the left side and crosshair points past them.
+      if (sb > 0.001 && !firstPersonMode) {
         const right = new THREE.Vector3(1, 0, 0).applyAxisAngle(new THREE.Vector3(0, 1, 0), totalYaw);
-        desiredCameraPos.addScaledVector(right, shoulderRight);
+        desiredCameraPos.addScaledVector(right, AIM_SHOULDER_RIGHT * sb);
+        // Also shift the look-at target right so crosshair points PAST the character
+        targetPos.addScaledVector(right, AIM_TARGET_RIGHT * sb);
       }
 
       // Smooth lerp — fast Y for airborne, smooth XZ

@@ -454,13 +454,15 @@ const ModelPiece = React.memo(function ModelPiece({ piece, isDeleteTarget }) {
    PlacedPiece — single rendered building piece (3D mesh)
    Wrapped in React.memo to avoid re-rendering ALL pieces when one is added/removed.
    ================================================================ */
-const PlacedPiece = React.memo(function PlacedPiece({ piece, isDeleteTarget, textures, wsSend }) {
+const PlacedPiece = React.memo(function PlacedPiece({ piece, isDeleteTarget, textures, wsSend, selectedPropId }) {
   const def = PIECE_TYPES[piece.type];
   const geo = useMemo(() => def && !def.isModel ? getPieceGeometry(piece.type) : null, [piece.type, def]);
   if (!def) return null;
 
   // Model-based props delegate to ModelPiece
   if (def.isModel) {
+    // When this prop is selected, SelectedPropGizmo renders the live copy — hide this static one
+    if (selectedPropId === piece.id) return null;
     return (
       <group
         position={[piece.x, piece.y, piece.z]}
@@ -889,11 +891,8 @@ function SelectedPropGizmo({ pieces, wsSend }) {
   return (
     <>
       <group ref={groupRef}>
-        {/* invisible mesh just so TransformControls has something to attach to */}
-        <mesh visible={false}>
-          <boxGeometry args={[1, 1, 1]} />
-          <meshBasicMaterial />
-        </mesh>
+        {/* Render actual model inside gizmo group so it moves live with transform */}
+        <ModelPiece piece={piece} isDeleteTarget={false} />
       </group>
       {groupRef.current && (
         <TransformControls
@@ -1400,6 +1399,7 @@ export default function BuildingSystem({ groundY, wsSend }) {
           isDeleteTarget={deleteMode && deleteTargetId === piece.id}
           textures={buildingTextures}
           wsSend={wsSend}
+          selectedPropId={selectedPropId}
         />
       ))}
 

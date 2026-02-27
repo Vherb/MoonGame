@@ -1086,12 +1086,9 @@ export function PlayerMover({ firstPersonMode = false, setFirstPersonMode = null
           strafing += gp.leftStickX; // Left stick X → strafe
         }
       } else {
-        // 3rd person: both sticks turn character
+        // 3rd person: left stick X turns character, right stick X orbits camera (handled by CameraFollower)
         if (gp.leftStickX !== 0) {
           turning -= gp.leftStickX * (turnSensitivity * 0.5);
-        }
-        if (gp.rightStickX !== 0) {
-          turning -= gp.rightStickX * turnSensitivity;
         }
       }
       if (gp.leftStickY !== 0) {
@@ -1158,8 +1155,8 @@ export function PlayerMover({ firstPersonMode = false, setFirstPersonMode = null
       ref.current.rotation.y = effYaw;
     }
     // Update turning state flags for animations - disabled in FPS and when menu open
-    const turningLeftNow = !firstPersonMode && !settingsMenuOpen && ((leftHeld || gp.leftStickX < -0.3 || gp.rightStickX < -0.3) && moving === 0);
-    const turningRightNow = !firstPersonMode && !settingsMenuOpen && ((rightHeld || gp.leftStickX > 0.3 || gp.rightStickX > 0.3) && moving === 0);
+    const turningLeftNow = !firstPersonMode && !settingsMenuOpen && ((leftHeld || gp.leftStickX < -0.3) && moving === 0);
+    const turningRightNow = !firstPersonMode && !settingsMenuOpen && ((rightHeld || gp.leftStickX > 0.3) && moving === 0);
     setIsTurningLeft(turningLeftNow);
     setIsTurningRight(turningRightNow);
 

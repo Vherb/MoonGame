@@ -176,10 +176,119 @@ export const PIECE_TYPES = {
     turretDamage: 10,
     turretFireRate: 1.5, // seconds between shots
   },
+
+  /* ── Model-based props ─────────────────────────────────── */
+  modelRocket: {
+    id: 'modelRocket',
+    label: 'Rocket',
+    glyph: '🚀',
+    description: 'Decorative rocket model.',
+    dims: [8, 20, 8],
+    cost: {},
+    color: '#CC5500',
+    snapType: 'prop',
+    walkable: false,
+    isModel: true,
+    modelPath: '/models/props/rocket/rocket_pedestal.fbx',
+    defaultScale: [0.08, 0.08, 0.08],
+  },
+  modelLaunchPad: {
+    id: 'modelLaunchPad',
+    label: 'Launch Pad',
+    glyph: '🛸',
+    description: 'Rocket launch pad structure.',
+    dims: [12, 10, 12],
+    cost: {},
+    color: '#888888',
+    snapType: 'prop',
+    walkable: false,
+    isModel: true,
+    modelPath: '/models/props/launch_pad/Launchpad_Sentinel_1021052838_texture.fbx',
+    defaultScale: [0.1, 0.1, 0.1],
+  },
+  modelRover: {
+    id: 'modelRover',
+    label: 'Rover',
+    glyph: '🚗',
+    description: 'Moon rover vehicle.',
+    dims: [10, 6, 10],
+    cost: {},
+    color: '#AA8844',
+    snapType: 'prop',
+    walkable: false,
+    isModel: true,
+    modelPath: '/models/props/rover/dusty rover/Dusty_Explorer_1020195240_texture.fbx',
+    defaultScale: [0.08, 0.08, 0.08],
+  },
+  modelTable: {
+    id: 'modelTable',
+    label: 'Table',
+    glyph: '🪑',
+    description: 'Fancy table furniture.',
+    dims: [6, 6, 6],
+    cost: {},
+    color: '#8B6914',
+    snapType: 'prop',
+    walkable: false,
+    isModel: true,
+    modelPath: '/models/props/table/table.fbx',
+    defaultScale: [0.15, 0.15, 0.15],
+  },
+  modelAsteroid: {
+    id: 'modelAsteroid',
+    label: 'Asteroid',
+    glyph: '🪨',
+    description: 'Decorative asteroid rock.',
+    dims: [6, 6, 6],
+    cost: {},
+    color: '#666666',
+    snapType: 'prop',
+    walkable: false,
+    isModel: true,
+    modelPath: '/models/props/asteroid/asteroid.fbx',
+    defaultScale: [0.06, 0.06, 0.06],
+  },
+  modelJetRocket: {
+    id: 'modelJetRocket',
+    label: 'Jet Rocket',
+    glyph: '✈️',
+    description: 'Space jet rocket.',
+    dims: [8, 8, 12],
+    cost: {},
+    color: '#4477AA',
+    snapType: 'prop',
+    walkable: false,
+    isModel: true,
+    modelPath: '/models/props/jet rocket/Space_Jet_Ignition_1021061919_texture.fbx',
+    defaultScale: [0.1, 0.1, 0.1],
+  },
+  modelCustom: {
+    id: 'modelCustom',
+    label: 'Custom Model',
+    glyph: '🎨',
+    description: 'Place any model from the library.',
+    dims: [8, 8, 8],
+    cost: {},
+    color: '#9933CC',
+    snapType: 'prop',
+    walkable: false,
+    isModel: true,
+    modelPath: null, // set at place time from user selection
+    defaultScale: [0.1, 0.1, 0.1],
+  },
 };
 
 // Ordered list for cycling through pieces
-export const PIECE_ORDER = ['foundation', 'wall', 'wallDoor', 'wallWindow', 'floor', 'ramp', 'halfWall', 'fence', 'reinforcedWall', 'spikeTrap', 'chest', 'lightPost', 'turret', 'demolish'];
+export const PIECE_ORDER = [
+  'foundation', 'wall', 'wallDoor', 'wallWindow', 'floor', 'ramp',
+  'halfWall', 'fence', 'reinforcedWall', 'spikeTrap', 'chest', 'lightPost', 'turret',
+  // Model props
+  'modelRocket', 'modelLaunchPad', 'modelRover', 'modelTable', 'modelAsteroid', 'modelJetRocket', 'modelCustom',
+  'demolish',
+];
+
+// Helper: all model prop type ids
+export const MODEL_PIECE_IDS = Object.keys(PIECE_TYPES).filter(k => PIECE_TYPES[k].isModel);
 
 /* ================================================================
    Snap Point Definitions
@@ -276,7 +385,8 @@ export function getSnapPoints(piece, placedPiece) {
     points.push({
       position: [x, y + FLOOR_THICKNESS, z],
       rotation: rotation,
-      accepts: ['chest', 'lightPost', 'turret', 'spikeTrap'],
+      accepts: ['chest', 'lightPost', 'turret', 'spikeTrap',
+        ...Object.keys(PIECE_TYPES).filter(k => PIECE_TYPES[k].isModel)],
       type: 'prop',
     });
   }
@@ -331,6 +441,10 @@ export const useBuildingStore = create((set, get) => ({
   ghostValid: false,          // can place here?
   ghostSnapId: null,          // which snap point we're locked to (or null for free/terrain)
 
+  // ── Model prop state ──
+  customModelPath: null,      // path selected for modelCustom placement
+  selectedPropId: null,       // which placed model prop is selected for transform editing
+
   // ── Placed pieces ──
   pieces: savedPieces,        // array of { id, type, x, y, z, rotation, health, ownerId }
 
@@ -344,6 +458,28 @@ export const useBuildingStore = create((set, get) => ({
 
   selectPiece: (pieceId) => set({ selectedPiece: pieceId, deleteMode: pieceId === 'demolish' }),
   setDeleteTarget: (pieceId) => set({ deleteTargetId: pieceId }),
+  setCustomModelPath: (path) => set({ customModelPath: path }),
+  setSelectedProp: (pieceId) => set({ selectedPropId: pieceId }),
+
+  // Update a placed piece's transform (position/rotation/scale) — for model prop editing
+  updatePieceTransform: (pieceId, transform) => {
+    set(prev => {
+      const updated = prev.pieces.map(p => {
+        if (p.id !== pieceId) return p;
+        const patched = { ...p };
+        if (transform.position) {
+          patched.x = transform.position.x;
+          patched.y = transform.position.y;
+          patched.z = transform.position.z;
+        }
+        if (transform.rotation !== undefined) patched.rotation = transform.rotation;
+        if (transform.modelScale) patched.modelScale = [...transform.modelScale];
+        return patched;
+      });
+      saveBuilding(updated);
+      return { pieces: updated };
+    });
+  },
 
   // Toggle a door open/closed
   toggleDoor: (pieceId) => {
@@ -379,6 +515,9 @@ export const useBuildingStore = create((set, get) => ({
     const pieceDef = PIECE_TYPES[s.selectedPiece];
     if (!pieceDef) return null;
 
+    // Prevent placing modelCustom without a selected model path
+    if (s.selectedPiece === 'modelCustom' && !s.customModelPath) return null;
+
     // Check resource cost
     const { useInventoryStore } = require('./useInventoryStore');
     const inv = useInventoryStore.getState();
@@ -402,6 +541,14 @@ export const useBuildingStore = create((set, get) => ({
       health: 100 * (pieceDef.healthMultiplier || 1),
       ownerId,
     };
+
+    // Attach model data for model-based props
+    if (pieceDef.isModel) {
+      newPiece.modelPath = s.selectedPiece === 'modelCustom'
+        ? (s.customModelPath || pieceDef.modelPath)
+        : pieceDef.modelPath;
+      newPiece.modelScale = pieceDef.defaultScale ? [...pieceDef.defaultScale] : [0.1, 0.1, 0.1];
+    }
 
     set(prev => {
       const updated = [...prev.pieces, newPiece];

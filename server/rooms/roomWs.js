@@ -381,6 +381,32 @@ function attachHandlers() {
           break;
         }
 
+        case 'build_transform': {
+          // Update a building piece's transform (position/rotation/scale for model props)
+          const meta_bt = mgr.socketMeta.get(ws);
+          if (!meta_bt?.roomCode) break;
+          const room_bt = mgr.rooms.get(meta_bt.roomCode);
+          if (!room_bt) break;
+          // Update the piece in the room's building data
+          if (room_bt.buildingPieces && data.pieceId != null) {
+            const idx = room_bt.buildingPieces.findIndex(p => p.id === data.pieceId);
+            if (idx >= 0) {
+              const p = room_bt.buildingPieces[idx];
+              if (data.position) { p.x = data.position.x; p.y = data.position.y; p.z = data.position.z; }
+              if (data.rotation !== undefined) p.rotation = data.rotation;
+              if (data.modelScale) p.modelScale = data.modelScale;
+            }
+          }
+          broadcastRoomExcept(room_bt, ws, {
+            type: 'build_transform',
+            pieceId: data.pieceId,
+            position: data.position,
+            rotation: data.rotation,
+            modelScale: data.modelScale,
+          });
+          break;
+        }
+
         case 'building_sync': {
           // Full building state sync (like cubes_sync)
           const meta2 = mgr.socketMeta.get(ws);

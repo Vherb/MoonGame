@@ -4,16 +4,18 @@
 //   • BuildingSystem (default export)  → 3D meshes, ghost preview — inside <Canvas>
 //   • BuildingOverlays (named export)  → HTML HUD / piece selector — OUTSIDE <Canvas>
 
-import React, { useRef, useMemo, useState, useCallback, useEffect } from 'react';
+import React, { useRef, useMemo, useState, useCallback, useEffect, Suspense } from 'react';
 import * as THREE from 'three';
 import { useFrame, useLoader } from '@react-three/fiber';
 import { TextureLoader } from 'three';
+import { TransformControls, useFBX } from '@react-three/drei';
 import { getTerrainHeightXZ, updateBuildingPiecesCache } from './terrainPhysics';
 import { useInventoryStore, ITEM_CATALOG } from './useInventoryStore';
 import {
   useBuildingStore,
   PIECE_TYPES,
   PIECE_ORDER,
+  MODEL_PIECE_IDS,
   GRID_SIZE,
   WALL_THICKNESS,
   getSnapPoints,
@@ -371,12 +373,112 @@ function DoorPanel({ piece, wsSend }) {
 }
 
 /* ================================================================
-   PlacedPiece — single rendered building piece (3D mesh)
+   ModelPieceInner — loads and renders FBX model for model-based props
+   Must be inside <Suspense> because useFBX suspends.
    ================================================================ */
-function PlacedPiece({ piece, isDeleteTarget, textures, wsSend }) {
+function ModelPieceInner({ piece, isDeleteTarget }) {
   const def = PIECE_TYPES[piece.type];
-  const geo = useMemo(() => getPieceGeometry(piece.type), [piece.type]);
+  const modelPath = piece.modelPath || (def && def.modelPath);
+  const fbx = useFBX(modelPath);
+
+  const clone = useMemo(() => {
+    if (!fbx) return null;
+    const group = new THREE.Group();
+    fbx.traverse(o => {
+      if (o.isMesh || o.isSkinnedMesh) {
+        const mesh = new THREE.Mesh(o.geometry, o.material.clone ? o.material.clone() : o.material);
+        mesh.castShadow = true;
+        mesh.receiveShadow = true;
+        mesh.position.copy(o.position);
+        mesh.rotation.copy(o.rotation);
+        mesh.scale.copy(o.scale);
+        mesh.userData = { isBuildingPiece: true, pieceId: piece.id };
+        group.add(mesh);
+      }
+    });
+    return group;
+  }, [fbx, piece.id]);
+
+  // Apply delete-target tint via emissive
+  useEffect(() => {
+    if (!clone) return;
+    clone.traverse(o => {
+      if (o.isMesh && o.material) {
+        const mat = o.material;
+        if (isDeleteTarget) {
+          mat.emissive = new THREE.Color('#ff0000');
+          mat.emissiveIntensity = 0.4;
+        } else {
+          mat.emissive = new THREE.Color('#000000');
+          mat.emissiveIntensity = 0;
+        }
+      }
+    });
+  }, [clone, isDeleteTarget]);
+
+  if (!clone) return null;
+
+  const sc = piece.modelScale || (def && def.defaultScale) || [0.1, 0.1, 0.1];
+  return <primitive object={clone} scale={sc} />;
+}
+
+/* ================================================================
+   ModelPiece — Suspense wrapper for model loading
+   Shows a placeholder box while the FBX loads.
+   ================================================================ */
+const ModelPiece = React.memo(function ModelPiece({ piece, isDeleteTarget }) {
+  const def = PIECE_TYPES[piece.type];
+  const modelPath = piece.modelPath || (def && def.modelPath);
+  if (!modelPath) {
+    // No model path (e.g. modelCustom with no selection) — render a colored box
+    return (
+      <mesh castShadow receiveShadow userData={{ isBuildingPiece: true, pieceId: piece.id }}>
+        <boxGeometry args={def ? def.dims : [8, 8, 8]} />
+        <meshStandardMaterial color={isDeleteTarget ? '#ff2222' : (def?.color || '#9933CC')} />
+      </mesh>
+    );
+  }
+  return (
+    <Suspense fallback={
+      <mesh castShadow receiveShadow>
+        <boxGeometry args={def ? [def.dims[0] * 0.5, def.dims[1] * 0.5, def.dims[2] * 0.5] : [4, 4, 4]} />
+        <meshStandardMaterial color={def?.color || '#888'} wireframe transparent opacity={0.4} />
+      </mesh>
+    }>
+      <ModelPieceInner piece={piece} isDeleteTarget={isDeleteTarget} />
+    </Suspense>
+  );
+});
+
+/* ================================================================
+   PlacedPiece — single rendered building piece (3D mesh)
+   Wrapped in React.memo to avoid re-rendering ALL pieces when one is added/removed.
+   ================================================================ */
+const PlacedPiece = React.memo(function PlacedPiece({ piece, isDeleteTarget, textures, wsSend }) {
+  const def = PIECE_TYPES[piece.type];
   if (!def) return null;
+
+  // Model-based props delegate to ModelPiece
+  if (def.isModel) {
+    return (
+      <group
+        position={[piece.x, piece.y, piece.z]}
+        rotation={[0, piece.rotation || 0, 0]}
+        onClick={(e) => {
+          e.stopPropagation();
+          const state = useBuildingStore.getState();
+          if (state.buildMode) {
+            // Toggle selection: click to select, click again to deselect
+            state.setSelectedProp(state.selectedPropId === piece.id ? null : piece.id);
+          }
+        }}
+      >
+        <ModelPiece piece={piece} isDeleteTarget={isDeleteTarget} />
+      </group>
+    );
+  }
+
+  const geo = useMemo(() => getPieceGeometry(piece.type), [piece.type]);
 
   const isMerged = ['wallDoor', 'wallWindow'].includes(piece.type);
   const isFence = piece.type === 'fence';
@@ -458,26 +560,48 @@ function PlacedPiece({ piece, isDeleteTarget, textures, wsSend }) {
         </group>
       )}
 
-      {/* Turret barrel glow */}
+      {/* Turret barrel emissive glow (no pointLight — avoids shader recompilation lag) */}
       {piece.type === 'turret' && (
-        <pointLight
-          position={[0, def.dims[1] * 0.7, -def.dims[2] * 0.5]}
-          color="#ff4400"
-          intensity={0.5}
-          distance={15}
-        />
+        <mesh position={[0, def.dims[1] * 0.7, -def.dims[2] * 0.5]}>
+          <sphereGeometry args={[0.8, 8, 6]} />
+          <meshStandardMaterial color="#ff4400" emissive="#ff4400" emissiveIntensity={2} toneMapped={false} />
+        </mesh>
       )}
     </group>
   );
-}
+});
 
 /* ================================================================
    GhostPreview — semi-transparent preview of piece being placed
    ================================================================ */
 function GhostPreview({ pieceType, position, rotation, valid }) {
   const def = PIECE_TYPES[pieceType];
-  const geo = useMemo(() => getPieceGeometry(pieceType), [pieceType]);
   if (!def) return null;
+
+  // Model-based props: show a bounding-box ghost instead of piece geometry
+  if (def.isModel) {
+    const [w, h, d] = def.dims;
+    return (
+      <group position={position} rotation={[0, rotation, 0]}>
+        <mesh position={[0, h / 2, 0]}>
+          <boxGeometry args={[w, h, d]} />
+          <meshStandardMaterial
+            color={valid ? '#00ff88' : '#ff4444'}
+            transparent opacity={0.3} side={THREE.DoubleSide}
+          />
+        </mesh>
+        <mesh position={[0, h / 2, 0]}>
+          <boxGeometry args={[w, h, d]} />
+          <meshBasicMaterial
+            color={valid ? '#00ff88' : '#ff4444'}
+            wireframe transparent opacity={0.6}
+          />
+        </mesh>
+      </group>
+    );
+  }
+
+  const geo = useMemo(() => getPieceGeometry(pieceType), [pieceType]);
   const isMerged = ['wallDoor', 'wallWindow'].includes(pieceType);
   const isFence = pieceType === 'fence';
   const isProp = ['chest', 'lightPost', 'turret'].includes(pieceType);
@@ -591,6 +715,155 @@ function CornerPosts({ pieces, textures }) {
           />
         </mesh>
       ))}
+    </>
+  );
+}
+
+/* ================================================================
+   SelectedPropGizmo — TransformControls for a selected model prop
+   Shows scale/rotate/translate gizmo on a placed model prop.
+   Activated when player clicks a model prop in build mode.
+   ================================================================ */
+function SelectedPropGizmo({ pieces, wsSend }) {
+  const selectedPropId = useBuildingStore(s => s.selectedPropId);
+  const updatePieceTransform = useBuildingStore(s => s.updatePieceTransform);
+  const groupRef = useRef();
+  const tcRef = useRef();
+  const [transformMode, setTransformMode] = useState('translate');
+
+  const piece = useMemo(() => {
+    if (!selectedPropId) return null;
+    return pieces.find(p => p.id === selectedPropId) || null;
+  }, [selectedPropId, pieces]);
+
+  // Set initial position when piece changes
+  useEffect(() => {
+    if (piece && groupRef.current) {
+      groupRef.current.position.set(piece.x, piece.y, piece.z);
+      groupRef.current.rotation.set(0, piece.rotation || 0, 0);
+      const sc = piece.modelScale || PIECE_TYPES[piece.type]?.defaultScale || [0.1, 0.1, 0.1];
+      groupRef.current.scale.set(sc[0], sc[1], sc[2]);
+    }
+  }, [piece]);
+
+  // Keyboard shortcut to switch transform mode (T/R/S) while prop is selected
+  useEffect(() => {
+    if (!selectedPropId) return;
+    const onKey = (e) => {
+      if (e.target.tagName === 'INPUT' || e.target.tagName === 'TEXTAREA') return;
+      if (e.key === 't' || e.key === 'T') setTransformMode('translate');
+      else if (e.key === 'r' || e.key === 'R') setTransformMode('rotate');
+      else if (e.key === 'g' || e.key === 'G') setTransformMode('scale');
+      else if (e.key === 'Escape') useBuildingStore.getState().setSelectedProp(null);
+    };
+    window.addEventListener('keydown', onKey);
+    return () => window.removeEventListener('keydown', onKey);
+  }, [selectedPropId]);
+
+  // Save helper — persist locally + WS sync
+  const saveAndSync = useCallback(() => {
+    if (!groupRef.current || !piece) return;
+    const pos = groupRef.current.position;
+    const rot = groupRef.current.rotation;
+    const scl = groupRef.current.scale;
+    updatePieceTransform(piece.id, {
+      position: { x: pos.x, y: pos.y, z: pos.z },
+      rotation: rot.y,
+      modelScale: [scl.x, scl.y, scl.z],
+    });
+    if (wsSend) {
+      try {
+        wsSend({
+          type: 'build_transform',
+          pieceId: piece.id,
+          position: { x: pos.x, y: pos.y, z: pos.z },
+          rotation: rot.y,
+          modelScale: [scl.x, scl.y, scl.z],
+        });
+      } catch {}
+    }
+  }, [piece, updatePieceTransform, wsSend]);
+
+  // Handle transform end (mouse gizmo drag)
+  useEffect(() => {
+    if (!tcRef.current) return;
+    const controls = tcRef.current;
+    const onChanged = (event) => {
+      if (event.value) return; // dragging started, wait for end
+      saveAndSync();
+    };
+    controls.addEventListener('dragging-changed', onChanged);
+    return () => {
+      if (controls.removeEventListener) controls.removeEventListener('dragging-changed', onChanged);
+    };
+  }, [saveAndSync]);
+
+  // Gamepad prop controls — D-pad move/rotate, LB/RB scale, Y deselect
+  const lastSaveRef = useRef(0);
+  useFrame((_, delta) => {
+    if (!selectedPropId || !groupRef.current || !piece) return;
+    const gp = navigator.getGamepads ? navigator.getGamepads()[0] : null;
+    if (!gp) return;
+
+    const MOVE_SPEED = 40; // units/sec
+    const ROT_SPEED = 2;   // rad/sec
+    const SCALE_SPEED = 0.5; // scale units/sec
+    const MIN_SCALE = 0.01;
+    const MAX_SCALE = 5;
+    let changed = false;
+
+    // D-pad Up (12) / Down (13) — move Y
+    if (gp.buttons[12]?.pressed) { groupRef.current.position.y += MOVE_SPEED * delta; changed = true; }
+    if (gp.buttons[13]?.pressed) { groupRef.current.position.y -= MOVE_SPEED * delta; changed = true; }
+    // D-pad Left (14) / Right (15) — rotate Y
+    if (gp.buttons[14]?.pressed) { groupRef.current.rotation.y += ROT_SPEED * delta; changed = true; }
+    if (gp.buttons[15]?.pressed) { groupRef.current.rotation.y -= ROT_SPEED * delta; changed = true; }
+    // LB (4) — scale down, RB (5) — scale up
+    if (gp.buttons[4]?.pressed) {
+      const s = Math.max(MIN_SCALE, groupRef.current.scale.x - SCALE_SPEED * delta);
+      groupRef.current.scale.set(s, s, s);
+      changed = true;
+    }
+    if (gp.buttons[5]?.pressed) {
+      const s = Math.min(MAX_SCALE, groupRef.current.scale.x + SCALE_SPEED * delta);
+      groupRef.current.scale.set(s, s, s);
+      changed = true;
+    }
+    // Y button (3) — deselect prop
+    if (gp.buttons[3]?.pressed) {
+      useBuildingStore.getState().setSelectedProp(null);
+      return;
+    }
+
+    // Throttled save — 200ms
+    if (changed) {
+      const now = performance.now();
+      if (now - lastSaveRef.current > 200) {
+        lastSaveRef.current = now;
+        saveAndSync();
+      }
+    }
+  });
+
+  if (!piece || !PIECE_TYPES[piece.type]?.isModel) return null;
+
+  return (
+    <>
+      <group ref={groupRef}>
+        {/* invisible mesh just so TransformControls has something to attach to */}
+        <mesh visible={false}>
+          <boxGeometry args={[1, 1, 1]} />
+          <meshBasicMaterial />
+        </mesh>
+      </group>
+      {groupRef.current && (
+        <TransformControls
+          ref={tcRef}
+          object={groupRef.current}
+          mode={transformMode}
+          size={0.6}
+        />
+      )}
     </>
   );
 }
@@ -800,8 +1073,11 @@ export default function BuildingSystem({ groundY, wsSend }) {
       finalPos = [gridX, gridTerrainY, gridZ];
       finalRot = currentRot;
 
-      // Only foundations and ramps can be placed on terrain directly
-      const canPlaceOnTerrain = selectedPiece === 'foundation' || selectedPiece === 'ramp';
+      // Pieces that can be placed directly on terrain (no foundation required)
+      const pDef = PIECE_TYPES[selectedPiece];
+      const canPlaceOnTerrain = selectedPiece === 'foundation' || selectedPiece === 'ramp'
+        || selectedPiece === 'turret' || selectedPiece === 'spikeTrap'
+        || (pDef && pDef.isModel);
       isValid = canPlaceOnTerrain && !checkOverlap(gridX, gridTerrainY, gridZ, currentRot, selectedPiece, pieces);
     }
 
@@ -815,6 +1091,12 @@ export default function BuildingSystem({ groundY, wsSend }) {
           break;
         }
       }
+    }
+
+    // Block modelCustom placement if no model path selected
+    if (isValid && selectedPiece === 'modelCustom') {
+      const cmPath = useBuildingStore.getState().customModelPath;
+      if (!cmPath) isValid = false;
     }
 
     setGhost(finalPos, finalRot, isValid);
@@ -1087,6 +1369,9 @@ export default function BuildingSystem({ groundY, wsSend }) {
 
       {/* Auto-generated corner posts where walls meet at 90° */}
       <CornerPosts pieces={pieces} textures={buildingTextures} />
+
+      {/* TransformControls gizmo for selected model prop */}
+      <SelectedPropGizmo pieces={pieces} wsSend={wsSend} />
     </>
   );
 }
@@ -1101,9 +1386,21 @@ export function BuildingOverlays() {
   const deleteMode = useBuildingStore(s => s.deleteMode);
   const toggleBuildMode = useBuildingStore(s => s.toggleBuildMode);
   const selectPiece = useBuildingStore(s => s.selectPiece);
+  const customModelPath = useBuildingStore(s => s.customModelPath);
+  const setCustomModelPath = useBuildingStore(s => s.setCustomModelPath);
+  const selectedPropId = useBuildingStore(s => s.selectedPropId);
   const resources = useInventoryStore(s => s.resources);
   const [, setTick] = useState(0);
   const [nearbyDoor, setNearbyDoor] = useState(null); // { id, isOpen, dist }
+  const [availableModels, setAvailableModels] = useState([]);
+
+  // Fetch available models from server for custom model picker
+  useEffect(() => {
+    fetch('/api/models')
+      .then(r => r.json())
+      .then(data => { if (data.models) setAvailableModels(data.models.filter(m => m.path)); })
+      .catch(() => {});
+  }, []);
 
   // Poll for nearby door (always active, not just in build mode)
   useEffect(() => {
@@ -1307,6 +1604,42 @@ export function BuildingOverlays() {
           <div style={{ opacity: 0.6, fontSize: 11, marginBottom: 8 }}>
             {selectedDef.description}
           </div>
+          {/* Custom model picker for modelCustom */}
+          {selectedPiece === 'modelCustom' && (
+            <div style={{ marginBottom: 8, borderBottom: '1px solid rgba(255,255,255,0.1)', paddingBottom: 8 }}>
+              <div style={{ fontSize: 10, opacity: 0.5, marginBottom: 4 }}>SELECT MODEL:</div>
+              <select
+                value={customModelPath || ''}
+                onChange={(e) => setCustomModelPath(e.target.value || null)}
+                style={{
+                  width: '100%', background: 'rgba(255,255,255,0.1)',
+                  border: '1px solid rgba(255,255,255,0.2)', borderRadius: 4,
+                  color: '#fff', fontFamily: 'monospace', fontSize: 11,
+                  padding: '4px 6px', cursor: 'pointer',
+                }}
+              >
+                <option value="" style={{ background: '#222' }}>-- pick a model --</option>
+                {availableModels.map(m => (
+                  <option key={m.path} value={m.path} style={{ background: '#222' }}>
+                    {m.name}
+                  </option>
+                ))}
+              </select>
+              {!customModelPath && (
+                <div style={{ color: '#ff8800', fontSize: 10, marginTop: 4, opacity: 0.8 }}>
+                  ⚠ Pick a model before placing
+                </div>
+              )}
+            </div>
+          )}
+          {/* Model prop post-place hint */}
+          {selectedDef.isModel && (
+            <div style={{ marginBottom: 6, padding: '4px 0', borderBottom: '1px solid rgba(255,255,255,0.1)' }}>
+              <div style={{ fontSize: 10, color: '#00d4ff', opacity: 0.8 }}>
+                💡 After placing, click prop in build mode to adjust with T/R/G gizmo
+              </div>
+            </div>
+          )}
           <div style={{ borderTop: '1px solid rgba(255,255,255,0.1)', paddingTop: 6 }}>
             <div style={{ fontSize: 10, opacity: 0.5, marginBottom: 4 }}>COST:</div>
             {Object.entries(selectedDef.cost).map(([resId, needed]) => {
@@ -1343,11 +1676,29 @@ export function BuildingOverlays() {
         <div><span style={{ color: '#fff' }}>1-9</span> — Select piece</div>
         {!isDemolish && <div><span style={{ color: '#fff' }}>X</span> — Destroy nearest</div>}
         <div><span style={{ color: '#fff' }}>B</span> — Exit build mode</div>
+        {selectedPropId && (
+          <>
+            <div style={{ marginTop: 6, marginBottom: 4, color: '#ffd700', fontSize: 9, opacity: 0.8 }}>PROP GIZMO</div>
+            <div><span style={{ color: '#ffd700' }}>T</span> — Translate</div>
+            <div><span style={{ color: '#ffd700' }}>R</span> — Rotate</div>
+            <div><span style={{ color: '#ffd700' }}>G</span> — Scale</div>
+            <div><span style={{ color: '#ffd700' }}>Esc</span> — Deselect</div>
+          </>
+        )}
         <div style={{ marginTop: 6, marginBottom: 4, color: '#aaa', fontSize: 9, opacity: 0.6 }}>CONTROLLER</div>
         <div><span style={{ color: '#00d4ff' }}>A</span> — {isDemolish ? 'Delete' : 'Place'}</div>
         {!isDemolish && <div><span style={{ color: '#00d4ff' }}>LB/RB</span> — Rotate</div>}
         <div><span style={{ color: '#00d4ff' }}>D-pad ←→</span> — Cycle piece</div>
         <div><span style={{ color: '#00d4ff' }}>R3</span> — Exit build mode</div>
+        {selectedPropId && (
+          <>
+            <div style={{ marginTop: 6, marginBottom: 4, color: '#ffd700', fontSize: 9, opacity: 0.8 }}>CONTROLLER PROP</div>
+            <div><span style={{ color: '#ffd700' }}>D-pad ↑↓</span> — Move up/down</div>
+            <div><span style={{ color: '#ffd700' }}>D-pad ←→</span> — Rotate</div>
+            <div><span style={{ color: '#ffd700' }}>LB/RB</span> — Scale</div>
+            <div><span style={{ color: '#ffd700' }}>Y</span> — Deselect</div>
+          </>
+        )}
       </div>
 
       {/* Placement / delete validity indicator */}

@@ -285,12 +285,20 @@ export default function RoomView() {
 
       case 'build_place':
       case 'build_destroy':
+      case 'build_transform':
         // Call store directly (same pattern as cubes_sync)
         if (data.type === 'build_place' && data.piece) {
           useBuildingStore.getState().addRemotePiece(data.piece);
         }
         if (data.type === 'build_destroy' && data.pieceId != null) {
           useBuildingStore.getState().removeRemotePiece(data.pieceId);
+        }
+        if (data.type === 'build_transform' && data.pieceId != null) {
+          useBuildingStore.getState().updatePieceTransform(data.pieceId, {
+            position: data.position,
+            rotation: data.rotation,
+            modelScale: data.modelScale,
+          });
         }
         break;
 
@@ -448,6 +456,10 @@ export default function RoomView() {
     }
     if (msg && msg.type === 'build_destroy') {
       try { ws.send(JSON.stringify({ type: 'build_destroy', pieceId: msg.pieceId })); } catch {}
+      return;
+    }
+    if (msg && msg.type === 'build_transform') {
+      try { ws.send(JSON.stringify({ type: 'build_transform', pieceId: msg.pieceId, position: msg.position, rotation: msg.rotation, modelScale: msg.modelScale })); } catch {}
       return;
     }
     if (msg && msg.type === 'building_sync' && Array.isArray(msg.pieces)) {

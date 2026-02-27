@@ -737,15 +737,18 @@ function SelectedPropGizmo({ pieces, wsSend }) {
     return pieces.find(p => p.id === selectedPropId) || null;
   }, [selectedPropId, pieces]);
 
-  // Set initial position when piece changes — skip if we're actively editing
+  // Sync ref from state ONLY when a different prop is selected (not after every flush)
   useEffect(() => {
-    if (piece && groupRef.current && !isEditingRef.current) {
-      groupRef.current.position.set(piece.x, piece.y, piece.z);
-      groupRef.current.rotation.set(0, piece.rotation || 0, 0);
-      const sc = piece.modelScale || PIECE_TYPES[piece.type]?.defaultScale || [0.1, 0.1, 0.1];
+    if (!selectedPropId) return;
+    const p = pieces.find(pp => pp.id === selectedPropId);
+    if (p && groupRef.current) {
+      groupRef.current.position.set(p.x, p.y, p.z);
+      groupRef.current.rotation.set(0, p.rotation || 0, 0);
+      const sc = p.modelScale || PIECE_TYPES[p.type]?.defaultScale || [0.1, 0.1, 0.1];
       groupRef.current.scale.set(sc[0], sc[1], sc[2]);
     }
-  }, [piece]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [selectedPropId]);
 
   // Read current transform from ref and commit to Zustand + WS (full save)
   const flushTransform = useCallback(() => {
@@ -886,13 +889,22 @@ function SelectedPropGizmo({ pieces, wsSend }) {
     }
   });
 
+  // Override modelScale to [1,1,1] so the inner model stays unit-scale.
+  // The parent group (groupRef) handles all scaling via its .scale property.
+  const gizmoPiece = useMemo(() => {
+    if (!piece) return null;
+    return { ...piece, modelScale: [1, 1, 1] };
+  }, [piece]);
+
   if (!piece || !PIECE_TYPES[piece.type]?.isModel) return null;
 
   return (
     <>
       <group ref={groupRef}>
-        {/* Render actual model inside gizmo group so it moves live with transform */}
-        <ModelPiece piece={piece} isDeleteTarget={false} />
+        {/* Render actual model inside gizmo group so it moves live with transform.
+            Pass modelScale=[1,1,1] so the inner primitive stays unit-scale —
+            the parent group handles all scaling via groupRef.current.scale. */}
+        <ModelPiece piece={gizmoPiece} isDeleteTarget={false} />
       </group>
       {groupRef.current && (
         <TransformControls

@@ -372,9 +372,11 @@ export function PlayerMover({ firstPersonMode = false, setFirstPersonMode = null
       }
       
       // Left stick for movement (axis 0 = left/right, axis 1 = up/down)
+      // Zero out when prop is being edited (left stick controls prop XZ)
       const deadzone = 0.15; // Ignore small stick movements
-      const leftX = Math.abs(gamepad.axes[0]) > deadzone ? gamepad.axes[0] : 0;
-      const leftY = Math.abs(gamepad.axes[1]) > deadzone ? gamepad.axes[1] : 0;
+      const propEditingStick = window.__CF_BUILDING_STATE__?.propEditing || false;
+      const leftX = propEditingStick ? 0 : (Math.abs(gamepad.axes[0]) > deadzone ? gamepad.axes[0] : 0);
+      const leftY = propEditingStick ? 0 : (Math.abs(gamepad.axes[1]) > deadzone ? gamepad.axes[1] : 0);
       
       gamepadState.current.leftStickX = leftX;
       gamepadState.current.leftStickY = leftY;

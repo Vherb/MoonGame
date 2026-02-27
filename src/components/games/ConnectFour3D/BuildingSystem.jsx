@@ -796,19 +796,30 @@ function SelectedPropGizmo({ pieces, wsSend }) {
     };
   }, [saveAndSync]);
 
-  // Gamepad prop controls — D-pad move/rotate, LB/RB scale, Y deselect
+  // Gamepad prop controls — left stick XZ, D-pad Y/rotate, LB/RB scale, Y deselect
   const lastSaveRef = useRef(0);
+  const gpPropPrev = useRef({ y: false }); // edge detection for Y deselect
   useFrame((_, delta) => {
     if (!selectedPropId || !groupRef.current || !piece) return;
     const gp = navigator.getGamepads ? navigator.getGamepads()[0] : null;
     if (!gp) return;
 
-    const MOVE_SPEED = 40; // units/sec
-    const ROT_SPEED = 2;   // rad/sec
-    const SCALE_SPEED = 0.5; // scale units/sec
+    const MOVE_SPEED = 8;    // units/sec (smooth)
+    const ROT_SPEED = 1.2;   // rad/sec
+    const SCALE_SPEED = 0.15; // scale units/sec
     const MIN_SCALE = 0.01;
     const MAX_SCALE = 5;
+    const DEADZONE = 0.15;
     let changed = false;
+
+    // Left stick — XZ movement (world-space)
+    const lx = Math.abs(gp.axes[0]) > DEADZONE ? gp.axes[0] : 0;
+    const ly = Math.abs(gp.axes[1]) > DEADZONE ? gp.axes[1] : 0;
+    if (lx !== 0 || ly !== 0) {
+      groupRef.current.position.x += lx * MOVE_SPEED * delta;
+      groupRef.current.position.z += ly * MOVE_SPEED * delta;
+      changed = true;
+    }
 
     // D-pad Up (12) / Down (13) — move Y
     if (gp.buttons[12]?.pressed) { groupRef.current.position.y += MOVE_SPEED * delta; changed = true; }
@@ -827,11 +838,14 @@ function SelectedPropGizmo({ pieces, wsSend }) {
       groupRef.current.scale.set(s, s, s);
       changed = true;
     }
-    // Y button (3) — deselect prop
-    if (gp.buttons[3]?.pressed) {
+    // Y button (3) — deselect prop (edge-triggered to avoid repeat)
+    const yNow = gp.buttons[3]?.pressed || false;
+    if (yNow && !gpPropPrev.current.y) {
+      // Final save before deselecting
+      saveAndSync();
       useBuildingStore.getState().setSelectedProp(null);
-      return;
     }
+    gpPropPrev.current.y = yNow;
 
     // Throttled save — 200ms
     if (changed) {
@@ -881,6 +895,7 @@ export default function BuildingSystem({ groundY, wsSend }) {
   const ghostRotation = useBuildingStore(s => s.ghostRotation);
   const ghostValid = useBuildingStore(s => s.ghostValid);
   const setGhost = useBuildingStore(s => s.setGhost);
+  const selectedPropId = useBuildingStore(s => s.selectedPropId);
 
   // Load building textures
   const texturePaths = useMemo(() => [...new Set(Object.values(PIECE_TEXTURE_MAP))], []);
@@ -1122,8 +1137,8 @@ export default function BuildingSystem({ groundY, wsSend }) {
       const dlBtn = gp.buttons[14]?.pressed || false;
       const drBtn = gp.buttons[15]?.pressed || false;
 
-      // A button — place piece (still works even while editing a prop)
-      if (aBtn && !prev.a) {
+      // A button — place piece (skip while prop is being edited)
+      if (aBtn && !prev.a && !isPropEditing) {
         const placed = placePiece('local');
         if (placed && wsSend) {
           try { wsSend({ type: 'build_place', piece: placed }); } catch {}
@@ -1361,8 +1376,8 @@ export default function BuildingSystem({ groundY, wsSend }) {
         />
       ))}
 
-      {/* Ghost preview (only in build mode, not in delete mode) */}
-      {buildMode && !deleteMode && (
+      {/* Ghost preview (only in build mode, not in delete mode, not while editing a prop) */}
+      {buildMode && !deleteMode && !selectedPropId && (
         <GhostPreview
           pieceType={selectedPiece}
           position={ghostPosition}
@@ -1697,10 +1712,11 @@ export function BuildingOverlays() {
         {selectedPropId && (
           <>
             <div style={{ marginTop: 6, marginBottom: 4, color: '#ffd700', fontSize: 9, opacity: 0.8 }}>CONTROLLER PROP</div>
+            <div><span style={{ color: '#ffd700' }}>L Stick</span> — Move XZ</div>
             <div><span style={{ color: '#ffd700' }}>D-pad ↑↓</span> — Move up/down</div>
             <div><span style={{ color: '#ffd700' }}>D-pad ←→</span> — Rotate</div>
             <div><span style={{ color: '#ffd700' }}>LB/RB</span> — Scale</div>
-            <div><span style={{ color: '#ffd700' }}>Y</span> — Deselect</div>
+            <div><span style={{ color: '#ffd700' }}>Y</span> — Done editing</div>
           </>
         )}
       </div>

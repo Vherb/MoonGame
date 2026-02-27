@@ -728,21 +728,57 @@ function SelectedPropGizmo({ pieces, wsSend }) {
   const groupRef = useRef();
   const tcRef = useRef();
   const [transformMode, setTransformMode] = useState('translate');
+  const isEditingRef = useRef(false); // true while actively manipulating via gamepad/gizmo
 
   const piece = useMemo(() => {
     if (!selectedPropId) return null;
     return pieces.find(p => p.id === selectedPropId) || null;
   }, [selectedPropId, pieces]);
 
-  // Set initial position when piece changes
+  // Set initial position when piece changes — skip if we're actively editing
   useEffect(() => {
-    if (piece && groupRef.current) {
+    if (piece && groupRef.current && !isEditingRef.current) {
       groupRef.current.position.set(piece.x, piece.y, piece.z);
       groupRef.current.rotation.set(0, piece.rotation || 0, 0);
       const sc = piece.modelScale || PIECE_TYPES[piece.type]?.defaultScale || [0.1, 0.1, 0.1];
       groupRef.current.scale.set(sc[0], sc[1], sc[2]);
     }
   }, [piece]);
+
+  // Read current transform from ref and commit to Zustand + WS (full save)
+  const flushTransform = useCallback(() => {
+    if (!groupRef.current || !piece) return;
+    const pos = groupRef.current.position;
+    const rot = groupRef.current.rotation;
+    const scl = groupRef.current.scale;
+    const data = {
+      position: { x: pos.x, y: pos.y, z: pos.z },
+      rotation: rot.y,
+      modelScale: [scl.x, scl.y, scl.z],
+    };
+    updatePieceTransform(piece.id, data);
+    if (wsSend) {
+      try { wsSend({ type: 'build_transform', pieceId: piece.id, ...data }); } catch {}
+    }
+    isEditingRef.current = false;
+  }, [piece, updatePieceTransform, wsSend]);
+
+  // WS-only sync (no Zustand, no localStorage) — lightweight live preview for other clients
+  const wsSyncOnly = useCallback(() => {
+    if (!groupRef.current || !piece || !wsSend) return;
+    const pos = groupRef.current.position;
+    const rot = groupRef.current.rotation;
+    const scl = groupRef.current.scale;
+    try {
+      wsSend({
+        type: 'build_transform',
+        pieceId: piece.id,
+        position: { x: pos.x, y: pos.y, z: pos.z },
+        rotation: rot.y,
+        modelScale: [scl.x, scl.y, scl.z],
+      });
+    } catch {}
+  }, [piece, wsSend]);
 
   // Keyboard shortcut to switch transform mode (T/R/S) while prop is selected
   useEffect(() => {
@@ -752,67 +788,51 @@ function SelectedPropGizmo({ pieces, wsSend }) {
       if (e.key === 't' || e.key === 'T') setTransformMode('translate');
       else if (e.key === 'r' || e.key === 'R') setTransformMode('rotate');
       else if (e.key === 'g' || e.key === 'G') setTransformMode('scale');
-      else if (e.key === 'Escape') useBuildingStore.getState().setSelectedProp(null);
+      else if (e.key === 'Escape') {
+        flushTransform();
+        useBuildingStore.getState().setSelectedProp(null);
+      }
     };
     window.addEventListener('keydown', onKey);
     return () => window.removeEventListener('keydown', onKey);
-  }, [selectedPropId]);
-
-  // Save helper — persist locally + WS sync
-  const saveAndSync = useCallback(() => {
-    if (!groupRef.current || !piece) return;
-    const pos = groupRef.current.position;
-    const rot = groupRef.current.rotation;
-    const scl = groupRef.current.scale;
-    updatePieceTransform(piece.id, {
-      position: { x: pos.x, y: pos.y, z: pos.z },
-      rotation: rot.y,
-      modelScale: [scl.x, scl.y, scl.z],
-    });
-    if (wsSend) {
-      try {
-        wsSend({
-          type: 'build_transform',
-          pieceId: piece.id,
-          position: { x: pos.x, y: pos.y, z: pos.z },
-          rotation: rot.y,
-          modelScale: [scl.x, scl.y, scl.z],
-        });
-      } catch {}
-    }
-  }, [piece, updatePieceTransform, wsSend]);
+  }, [selectedPropId, flushTransform]);
 
   // Handle transform end (mouse gizmo drag)
   useEffect(() => {
     if (!tcRef.current) return;
     const controls = tcRef.current;
     const onChanged = (event) => {
-      if (event.value) return; // dragging started, wait for end
-      saveAndSync();
+      if (event.value) {
+        isEditingRef.current = true; // drag started
+        return;
+      }
+      // Drag ended — full save
+      flushTransform();
     };
     controls.addEventListener('dragging-changed', onChanged);
     return () => {
       if (controls.removeEventListener) controls.removeEventListener('dragging-changed', onChanged);
     };
-  }, [saveAndSync]);
+  }, [flushTransform]);
 
   // Gamepad prop controls — left stick XZ, D-pad Y/rotate, LB/RB scale, Y deselect
-  const lastSaveRef = useRef(0);
-  const gpPropPrev = useRef({ y: false }); // edge detection for Y deselect
+  const lastWsSyncRef = useRef(0);
+  const idleTimerRef = useRef(null);
+  const gpPropPrev = useRef({ y: false });
   useFrame((_, delta) => {
     if (!selectedPropId || !groupRef.current || !piece) return;
     const gp = navigator.getGamepads ? navigator.getGamepads()[0] : null;
     if (!gp) return;
 
-    const MOVE_SPEED = 8;    // units/sec (smooth)
-    const ROT_SPEED = 1.2;   // rad/sec
-    const SCALE_SPEED = 0.15; // scale units/sec
+    const MOVE_SPEED = 8;
+    const ROT_SPEED = 1.2;
+    const SCALE_SPEED = 0.15;
     const MIN_SCALE = 0.01;
     const MAX_SCALE = 5;
     const DEADZONE = 0.15;
     let changed = false;
 
-    // Left stick — XZ movement (world-space)
+    // Left stick — XZ movement
     const lx = Math.abs(gp.axes[0]) > DEADZONE ? gp.axes[0] : 0;
     const ly = Math.abs(gp.axes[1]) > DEADZONE ? gp.axes[1] : 0;
     if (lx !== 0 || ly !== 0) {
@@ -821,13 +841,13 @@ function SelectedPropGizmo({ pieces, wsSend }) {
       changed = true;
     }
 
-    // D-pad Up (12) / Down (13) — move Y
+    // D-pad Up/Down — move Y
     if (gp.buttons[12]?.pressed) { groupRef.current.position.y += MOVE_SPEED * delta; changed = true; }
     if (gp.buttons[13]?.pressed) { groupRef.current.position.y -= MOVE_SPEED * delta; changed = true; }
-    // D-pad Left (14) / Right (15) — rotate Y
+    // D-pad Left/Right — rotate Y
     if (gp.buttons[14]?.pressed) { groupRef.current.rotation.y += ROT_SPEED * delta; changed = true; }
     if (gp.buttons[15]?.pressed) { groupRef.current.rotation.y -= ROT_SPEED * delta; changed = true; }
-    // LB (4) — scale down, RB (5) — scale up
+    // LB/RB — scale
     if (gp.buttons[4]?.pressed) {
       const s = Math.max(MIN_SCALE, groupRef.current.scale.x - SCALE_SPEED * delta);
       groupRef.current.scale.set(s, s, s);
@@ -838,22 +858,29 @@ function SelectedPropGizmo({ pieces, wsSend }) {
       groupRef.current.scale.set(s, s, s);
       changed = true;
     }
-    // Y button (3) — deselect prop (edge-triggered to avoid repeat)
+    // Y button — deselect (edge-triggered)
     const yNow = gp.buttons[3]?.pressed || false;
     if (yNow && !gpPropPrev.current.y) {
-      // Final save before deselecting
-      saveAndSync();
+      flushTransform();
       useBuildingStore.getState().setSelectedProp(null);
     }
     gpPropPrev.current.y = yNow;
 
-    // Throttled save — 200ms
     if (changed) {
+      isEditingRef.current = true;
+
+      // Lightweight WS-only sync every 100ms for live preview on remote clients
       const now = performance.now();
-      if (now - lastSaveRef.current > 200) {
-        lastSaveRef.current = now;
-        saveAndSync();
+      if (now - lastWsSyncRef.current > 100) {
+        lastWsSyncRef.current = now;
+        wsSyncOnly();
       }
+
+      // Debounced full save — only after 300ms of no input
+      if (idleTimerRef.current) clearTimeout(idleTimerRef.current);
+      idleTimerRef.current = setTimeout(() => {
+        flushTransform();
+      }, 300);
     }
   });
 

@@ -87,40 +87,68 @@ function createPieceGeometry(pieceType) {
 
     case 'wall':
     case 'halfWall':
-    case 'reinforcedWall':
-      return new THREE.BoxGeometry(def.dims[0], def.dims[1], def.dims[2]);
+    case 'reinforcedWall': {
+      // Modular wall — inset center panel with raised edge frame for 3D depth
+      const wW = def.dims[0], wH = def.dims[1], wD = def.dims[2];
+      const trim = 1.4;          // frame strip width
+      const inset = 0.35;       // how deep the center panel is recessed
+      const frameD = wD + inset; // frame is thicker than inset panel
+      // Center inset panel (slightly thinner so it sits recessed)
+      const panel = makeBox(wW - trim * 2, wH - trim * 2, wD - inset, 0, wH / 2, 0);
+      // Top frame strip
+      const topStrip = makeBox(wW, trim, frameD, 0, wH - trim / 2, 0);
+      // Bottom frame strip
+      const botStrip = makeBox(wW, trim, frameD, 0, trim / 2, 0);
+      // Left frame strip (between top and bottom)
+      const leftStrip = makeBox(trim, wH - trim * 2, frameD, -(wW / 2) + trim / 2, wH / 2, 0);
+      // Right frame strip
+      const rightStrip = makeBox(trim, wH - trim * 2, frameD, (wW / 2) - trim / 2, wH / 2, 0);
+      return mergeBoxes([panel, topStrip, botStrip, leftStrip, rightStrip]);
+    }
 
     case 'wallDoor': {
-      // Wall with doorway cutout built from BoxGeometry segments for proper UVs
+      // Modular wall with doorway cutout + raised frame trim
       const w = def.dims[0], h = def.dims[1], d = def.dims[2];
       const dw = def.doorWidth, dh = def.doorHeight;
-      // Left segment
+      const inset = 0.35;
+      const frameD = d + inset;
+      // Wall segments around door opening — raised frame thickness
       const leftW = (w - dw) / 2;
-      const left = makeBox(leftW, h, d, -(w / 2) + leftW / 2, h / 2, 0);
-      // Right segment
-      const right = makeBox(leftW, h, d, (w / 2) - leftW / 2, h / 2, 0);
-      // Top (lintel above door)
+      const left = makeBox(leftW, h, frameD, -(w / 2) + leftW / 2, h / 2, 0);
+      const right = makeBox(leftW, h, frameD, (w / 2) - leftW / 2, h / 2, 0);
       const topH = h - dh;
-      const top = makeBox(dw, topH, d, 0, dh + topH / 2, 0);
-      return mergeBoxes([left, right, top]);
+      const top = makeBox(dw, topH, frameD, 0, dh + topH / 2, 0);
+      // Door frame trim (protruding border around opening)
+      const frameTrim = 0.8;
+      const ftD = frameD + 0.3;
+      const doorTop = makeBox(dw + frameTrim * 2, frameTrim, ftD, 0, dh + frameTrim / 2, 0);
+      const doorLeft = makeBox(frameTrim, dh, ftD, -(dw / 2) - frameTrim / 2, dh / 2, 0);
+      const doorRight = makeBox(frameTrim, dh, ftD, (dw / 2) + frameTrim / 2, dh / 2, 0);
+      return mergeBoxes([left, right, top, doorTop, doorLeft, doorRight]);
     }
 
     case 'wallWindow': {
-      // Wall with window cutout built from BoxGeometry segments for proper UVs
+      // Modular wall with large window cutout + raised frame trim
       const w = def.dims[0], h = def.dims[1], d = def.dims[2];
       const ww = def.windowWidth, wh = def.windowHeight, wy = def.windowY;
-      // Left segment (full height)
+      const inset = 0.35;
+      const frameD = d + inset;
+      // 4 wall segments around window opening
       const sideW = (w - ww) / 2;
-      const left = makeBox(sideW, h, d, -(w / 2) + sideW / 2, h / 2, 0);
-      // Right segment (full height)
-      const right = makeBox(sideW, h, d, (w / 2) - sideW / 2, h / 2, 0);
-      // Bottom (below window)
+      const left = makeBox(sideW, h, frameD, -(w / 2) + sideW / 2, h / 2, 0);
+      const right = makeBox(sideW, h, frameD, (w / 2) - sideW / 2, h / 2, 0);
       const botH = wy - wh / 2;
-      const bottom = makeBox(ww, botH, d, 0, botH / 2, 0);
-      // Top (above window)
+      const bottom = makeBox(ww, botH, frameD, 0, botH / 2, 0);
       const topH = h - (wy + wh / 2);
-      const top = makeBox(ww, topH, d, 0, h - topH / 2, 0);
-      return mergeBoxes([left, right, bottom, top]);
+      const top = makeBox(ww, topH, frameD, 0, h - topH / 2, 0);
+      // Window frame trim (slightly protruding border around the opening)
+      const frameTrim = 0.8;
+      const ftD = frameD + 0.3;
+      const winTop = makeBox(ww + frameTrim * 2, frameTrim, ftD, 0, wy + wh / 2 + frameTrim / 2, 0);
+      const winBot = makeBox(ww + frameTrim * 2, frameTrim, ftD, 0, wy - wh / 2 - frameTrim / 2, 0);
+      const winLeft = makeBox(frameTrim, wh, ftD, -(ww / 2) - frameTrim / 2, wy, 0);
+      const winRight = makeBox(frameTrim, wh, ftD, (ww / 2) + frameTrim / 2, wy, 0);
+      return mergeBoxes([left, right, bottom, top, winTop, winBot, winLeft, winRight]);
     }
 
     case 'fence': {
@@ -155,6 +183,27 @@ function createPieceGeometry(pieceType) {
       const geo = new THREE.ExtrudeGeometry(shape, { depth: w, bevelEnabled: false });
       geo.translate(-d / 2, 0, -w / 2);
       return geo;
+    }
+
+    case 'stairs': {
+      // Stepped staircase — merged box steps going from y=0 to y=h
+      const w = def.dims[0], h = def.dims[1], d = def.dims[2];
+      const steps = def.stairSteps || 8;
+      const stepH = h / steps;
+      const stepD = d / steps;
+      const boxes = [];
+      for (let i = 0; i < steps; i++) {
+        // Each step is a box from bottom to current step height
+        const sy = (i + 1) * stepH;
+        const sz = -d / 2 + i * stepD + stepD / 2;
+        boxes.push(makeBox(w, stepH, stepD, 0, sy - stepH / 2, sz));
+      }
+      return mergeBoxes(boxes);
+    }
+
+    case 'platform': {
+      // Half-width floor extension
+      return new THREE.BoxGeometry(def.dims[0], def.dims[1], def.dims[2]);
     }
 
     case 'chest': {
@@ -285,18 +334,20 @@ function checkOverlap(x, y, z, rotation, pieceType, existingPieces) {
    ================================================================ */
 const PIECE_TEXTURE_MAP = {
   foundation: '/textures/building/foundation.jpg',
-  wall:       '/textures/building/wall.jpg',
-  wallDoor:   '/textures/building/wall.jpg',
-  wallWindow: '/textures/building/wall.jpg',
-  halfWall:   '/textures/building/wall.jpg',
-  floor:      '/textures/building/floor.jpg',
-  ramp:       '/textures/building/floor.jpg',
-  fence:      '/textures/building/wall.jpg',
-  reinforcedWall: '/textures/building/wall.jpg',
+  wall:       '/textures/building/wall2.jpg',
+  wallDoor:   '/textures/building/wall2.jpg',
+  wallWindow: '/textures/building/wall2.jpg',
+  halfWall:   '/textures/building/wall2.jpg',
+  floor:      '/textures/building/floor 2.jpg',
+  ramp:       '/textures/building/floor 2.jpg',
+  fence:      '/textures/building/wall2.jpg',
+  reinforcedWall: '/textures/building/wall2.jpg',
+  stairs:     '/textures/building/floor 2.jpg',
+  platform:   '/textures/building/floor 2.jpg',
   spikeTrap:  '/textures/building/foundation.jpg',
-  chest:      '/textures/building/wall.jpg',
-  lightPost:  '/textures/building/wall.jpg',
-  turret:     '/textures/building/wall.jpg',
+  chest:      '/textures/building/wall2.jpg',
+  lightPost:  '/textures/building/wall2.jpg',
+  turret:     '/textures/building/wall2.jpg',
 };
 
 // Texture repeat scale per type (how many times to tile)
@@ -310,6 +361,8 @@ const PIECE_TEXTURE_REPEAT = {
   ramp:       [1, 1],
   fence:      [1, 1],
   reinforcedWall: [1, 1],
+  stairs:     [1, 1],
+  platform:   [1, 1],
   spikeTrap:  [1, 1],
   chest:      [1, 1],
   lightPost:  [1, 1],
@@ -471,6 +524,9 @@ function TurretTopTracker({ piece, children }) {
 
   useFrame((_, delta) => {
     if (!groupRef.current) return;
+    // If turret editor freeze is active, skip all rotation
+    const offset = window.__CF_TURRET_TOP_OFFSET__;
+    if (offset && offset.freeze) return;
     const targets = window.__CF_TURRET_TARGETS__;
     const target = targets && targets[piece.id];
     if (target) {
@@ -500,6 +556,25 @@ function TurretTopTracker({ piece, children }) {
 }
 
 /* ================================================================
+   TurretTopOffsetWrapper — applies live-editable position/rotation/scale
+   offset to the turret-top model, reading from window.__CF_TURRET_TOP_OFFSET__
+   published by the Turret Editor panel in ConnectFour3DView.
+   ================================================================ */
+function TurretTopOffsetWrapper({ children }) {
+  const groupRef = useRef();
+  useFrame(() => {
+    if (!groupRef.current) return;
+    const o = window.__CF_TURRET_TOP_OFFSET__;
+    if (!o) return;
+    groupRef.current.position.set(o.pos[0], o.pos[1], o.pos[2]);
+    groupRef.current.rotation.set(o.rot[0], o.rot[1], o.rot[2]);
+    const s = o.scale;
+    groupRef.current.scale.set(s, s, s);
+  });
+  return <group ref={groupRef}>{children}</group>;
+}
+
+/* ================================================================
    PlacedPiece — single rendered building piece (3D mesh)
    Wrapped in React.memo to avoid re-rendering ALL pieces when one is added/removed.
    ================================================================ */
@@ -522,12 +597,15 @@ const PlacedPiece = React.memo(function PlacedPiece({ piece, isDeleteTarget, tex
     };
 
     // turretTop pieces get wrapped in TurretTopTracker for live target-tracking rotation
+    // TurretTopOffsetWrapper applies editor-adjustable offset so model sits on base correctly
     if (def.isTurretTop) {
       return (
         <TurretTopTracker piece={piece}>
-          <group onClick={clickHandler}>
-            <ModelPiece piece={piece} isDeleteTarget={isDeleteTarget} />
-          </group>
+          <TurretTopOffsetWrapper>
+            <group onClick={clickHandler}>
+              <ModelPiece piece={piece} isDeleteTarget={isDeleteTarget} />
+            </group>
+          </TurretTopOffsetWrapper>
         </TurretTopTracker>
       );
     }
@@ -543,7 +621,7 @@ const PlacedPiece = React.memo(function PlacedPiece({ piece, isDeleteTarget, tex
     );
   }
 
-  const isMerged = ['wallDoor', 'wallWindow'].includes(piece.type);
+  const isMerged = ['wallDoor', 'wallWindow', 'wall', 'halfWall', 'reinforcedWall', 'stairs'].includes(piece.type);
   const isFence = piece.type === 'fence';
   const isProp = ['chest', 'lightPost', 'turret'].includes(piece.type);
   const yOffset = (isMerged || isFence || isProp) ? 0 : def.dims[1] / 2;
@@ -599,6 +677,27 @@ const PlacedPiece = React.memo(function PlacedPiece({ piece, isDeleteTarget, tex
       {piece.type === 'wallDoor' && (
         <DoorPanel piece={piece} wsSend={wsSend} />
       )}
+
+      {/* Glass pane inside wallWindow */}
+      {piece.type === 'wallWindow' && (() => {
+        const ww = def.windowWidth, wh = def.windowHeight, wy = def.windowY;
+        return (
+          <mesh position={[0, wy, 0]}>
+            <planeGeometry args={[ww, wh]} />
+            <meshPhysicalMaterial
+              color="#88ccff"
+              transparent
+              opacity={0.25}
+              roughness={0.05}
+              metalness={0.1}
+              side={THREE.DoubleSide}
+              envMapIntensity={1.5}
+              emissive="#1a3a5c"
+              emissiveIntensity={0.15}
+            />
+          </mesh>
+        );
+      })()}
 
       {/* Light post point light */}
       {piece.type === 'lightPost' && def.lightRadius && (
@@ -1051,13 +1150,15 @@ export default function BuildingSystem({ groundY, wsSend }) {
         snapType: def?.snapType,
         doorWidth: def?.doorWidth,
         doorHeight: def?.doorHeight,
+        stairSteps: def?.stairSteps,
       };
     });
     updateBuildingPiecesCache(physPieces);
   }, [pieces]);
 
-  // Helper: find the piece the player is looking at (nearest in look direction)
-  const findDeleteTarget = (px, pz, yaw) => {
+  // Helper: find the piece the player is looking at (nearest in look direction + Y level)
+  // Deprioritizes floors/foundations so pieces ON them get selected first.
+  const findDeleteTarget = (px, pz, yaw, playerY) => {
     const lookX = -Math.sin(yaw);
     const lookZ = -Math.cos(yaw);
     let best = null, bestScore = Infinity;
@@ -1069,8 +1170,26 @@ export default function BuildingSystem({ groundY, wsSend }) {
       // Dot product: how much is this piece in the look direction?
       const dot = (dx * lookX + dz * lookZ) / (dist || 1);
       if (dot < 0.3) continue; // must be roughly in front
-      // Score: prefer closer + more aligned
-      const score = dist * (1 - dot * 0.5);
+
+      const pDef = PIECE_TYPES[p.type];
+      const pieceH = pDef ? pDef.dims[1] : 0;
+      const pieceTopY = p.y + pieceH;
+
+      // Penalty 1: piece is fully below the player's feet (standing on it)
+      const standingOnPenalty = (playerY > pieceTopY + 2) ? 50 : 0;
+
+      // Penalty 2: floor/foundation types get deprioritized so things ON them
+      // (turrets, fences, spike traps, props) are selected first
+      const isFloorType = (p.type === 'foundation' || p.type === 'floor');
+      const floorPenalty = isFloorType ? 30 : 0;
+
+      // Penalty 3: distance from player Y to piece center
+      const pieceMidY = p.y + pieceH / 2;
+      const dy = Math.abs((playerY || 0) - pieceMidY);
+      const yPenalty = dy * 1.5;
+
+      // Score: prefer closer + more aligned + same Y level + not floor + not under feet
+      const score = dist * (1 - dot * 0.5) + yPenalty + standingOnPenalty + floorPenalty;
       if (score < bestScore) { bestScore = score; best = p; }
     }
     return best;
@@ -1105,7 +1224,9 @@ export default function BuildingSystem({ groundY, wsSend }) {
 
     // --- DELETE MODE: find nearest piece in look direction ---
     if (deleteMode) {
-      const target = findDeleteTarget(px, pz, yaw);
+      const playerLiftDel = avatar.lift || 0;
+      const playerWorldYDel = (groundY || 0) + playerLiftDel;
+      const target = findDeleteTarget(px, pz, yaw, playerWorldYDel);
       setDeleteTarget(target ? target.id : null);
       // Publish state for HTML overlay
       window.__CF_BUILDING_STATE__ = {
@@ -1189,6 +1310,7 @@ export default function BuildingSystem({ groundY, wsSend }) {
       // Pieces that can be placed directly on terrain (no foundation required)
       const pDef = PIECE_TYPES[selectedPiece];
       const canPlaceOnTerrain = selectedPiece === 'foundation' || selectedPiece === 'ramp'
+        || selectedPiece === 'stairs' || selectedPiece === 'platform'
         || selectedPiece === 'turret' || selectedPiece === 'spikeTrap'
         || (pDef && pDef.isModel);
       isValid = canPlaceOnTerrain && !checkOverlap(gridX, gridTerrainY, gridZ, currentRot, selectedPiece, pieces);

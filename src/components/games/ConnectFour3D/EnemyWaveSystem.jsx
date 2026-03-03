@@ -13,7 +13,7 @@ import { useFrame } from '@react-three/fiber';
 import { useFBX } from '@react-three/drei';
 import { clone as skeletonClone } from 'three/examples/jsm/utils/SkeletonUtils.js';
 import { TERRAIN_RADIUS } from './constants';
-import { getTerrainHeightXZ } from './terrainPhysics';
+import { getTerrainHeightXZ, getGroundHeightXZ } from './terrainPhysics';
 import { CURRENT_BUILDING_PIECES } from './terrainPhysics';
 import { useInventoryStore, ITEM_CATALOG, RARITY_COLORS } from './useInventoryStore';
 import { useBuildingStore, PIECE_TYPES, GRID_SIZE } from './useBuildingStore';
@@ -21,20 +21,21 @@ import { useBuildingStore, PIECE_TYPES, GRID_SIZE } from './useBuildingStore';
 /* ================================================================
    Configuration
    ================================================================ */
-const WAVE_INTERVAL     = 300;     // seconds between waves (5 min)
-const FIRST_WAVE_DELAY  = 120;     // seconds before first wave (2 min grace period)
-const WAVE_WARN_TIME    = 30;      // seconds of "incoming!" warning before spawn
+const WAVE_INTERVAL     = 10;      // seconds between waves
+const FIRST_WAVE_DELAY  = 0;       // seconds before first wave (instant for testing)
+const WAVE_WARN_TIME    = 0;       // seconds of "incoming!" warning before spawn
 const SPAWN_DISTANCE    = 800;     // distance from center where enemies spawn
 const BASE_ENEMY_COUNT  = 4;       // enemies in wave 1
 const ENEMIES_PER_WAVE  = 2;       // additional enemies per wave
 const MAX_ENEMIES       = 20;      // cap
 
-const ENEMY_SPEED       = 12;      // units/second
+const ENEMY_SPEED       = 25;      // units/second
 const ENEMY_HP_BASE     = 80;      // base HP, scaled by wave number
 const ENEMY_HP_SCALE    = 20;      // extra HP per wave
 const ENEMY_ATTACK_RANGE= 6;       // distance to start attacking a building piece
 const ENEMY_ATTACK_DPS  = 8;       // damage per second to building pieces
 const ENEMY_MODEL_SCALE = 0.15;    // FBX model display scale
+const ENEMY_MODEL_Y_OFFSET = 50;  // local-space Y offset to raise model so feet touch ground
 const ENEMY_HEIGHT      = 14;      // approximate visual height
 
 // Turret configuration (matches PIECE_TYPES.turret)
@@ -106,7 +107,7 @@ function createEnemy(waveNum) {
   const angle = Math.random() * Math.PI * 2;
   const x = Math.cos(angle) * SPAWN_DISTANCE;
   const z = Math.sin(angle) * SPAWN_DISTANCE;
-  const terrainY = getTerrainHeightXZ(x, z);
+  const terrainY = getGroundHeightXZ(x, z);
   const y = terrainY > -9000 ? terrainY : 0;
   
   return {
@@ -220,16 +221,24 @@ function retargetClip(clip, boneMap, prefix) {
   return new THREE.AnimationClip(`${prefix}:${clip.name || 'clip'}`, clip.duration, newTracks);
 }
 
+/** Strip .position tracks from a clip so root motion doesn't fight game positioning */
+function stripPositionTracks(clip) {
+  if (!clip || !clip.tracks) return clip;
+  const filtered = clip.tracks.filter(t => !t.name.endsWith('.position'));
+  return new THREE.AnimationClip(clip.name, clip.duration, filtered);
+}
+
 /* ================================================================
    Single Enemy mesh (3D) — with real walking animation
    ================================================================ */
-function EnemyMesh({ enemy, clone, walkClips }) {
+function EnemyMesh({ enemy, clone, walkClips, dieClips }) {
   const groupRef = useRef();
   const hpBarRef = useRef();
   const mixerRef = useRef(null);
   const actionsRef = useRef({});
   const currentAction = useRef(null);
   const prevState = useRef('');
+  const deathAnimStarted = useRef(false);
 
   useLayoutEffect(() => {
     if (!clone) return;
@@ -237,20 +246,36 @@ function EnemyMesh({ enemy, clone, walkClips }) {
     const mixer = new THREE.AnimationMixer(clone);
     mixerRef.current = mixer;
 
-    // === Idle animation (embedded in Idle.fbx model) ===
+    // === Idle animation (embedded in Idle.fbx model) — strip position tracks ===
     const embeddedClips = clone.animations;
     if (embeddedClips && embeddedClips.length > 0) {
-      const idleAction = mixer.clipAction(embeddedClips[0]);
+      const stripped = stripPositionTracks(embeddedClips[0]);
+      const idleAction = mixer.clipAction(stripped);
       idleAction.setLoop(THREE.LoopRepeat);
       actionsRef.current.idle = idleAction;
     }
 
-    // === Walk animation (from separate Walking.fbx) ===
+    // === Walk animation (from separate Walking.fbx) — strip position tracks ===
     if (walkClips && walkClips.length > 0) {
       try {
-        const walkAction = mixer.clipAction(walkClips[0]);
+        const stripped = stripPositionTracks(walkClips[0]);
+        const walkAction = mixer.clipAction(stripped);
         walkAction.setLoop(THREE.LoopRepeat);
         actionsRef.current.walk = walkAction;
+      } catch {}
+    }
+
+    // === Dying animation (from astronaut Mixamo rig — retarget to attack robot) ===
+    if (dieClips && dieClips.length > 0) {
+      try {
+        const boneMap = buildBoneMap(clone);
+        const retargeted = retargetClip(dieClips[0], boneMap, 'die');
+        if (retargeted) {
+          const dieAction = mixer.clipAction(retargeted);
+          dieAction.setLoop(THREE.LoopOnce);
+          dieAction.clampWhenFinished = true;
+          actionsRef.current.die = dieAction;
+        }
       } catch {}
     }
 
@@ -267,22 +292,41 @@ function EnemyMesh({ enemy, clone, walkClips }) {
       mixerRef.current = null;
       actionsRef.current = {};
       currentAction.current = null;
+      deathAnimStarted.current = false;
     };
-  }, [clone, walkClips]);
+  }, [clone, walkClips, dieClips]);
 
   useFrame((_, dt) => {
     if (!groupRef.current) return;
     groupRef.current.position.set(enemy.x, enemy.y, enemy.z);
     groupRef.current.rotation.y = enemy.rotY;
 
-    // Death fade
+    // Death — play dying animation then fade out
     if (enemy.dead) {
-      const scale = Math.max(0, 1 - enemy.deathTimer * 2);
-      groupRef.current.scale.setScalar(scale * ENEMY_MODEL_SCALE);
-      if (mixerRef.current && currentAction.current) {
-        currentAction.current.fadeOut(0.3);
-        currentAction.current = null;
+      // Start death animation once
+      if (!deathAnimStarted.current) {
+        deathAnimStarted.current = true;
+        const actions = actionsRef.current;
+        if (actions.die) {
+          if (currentAction.current) currentAction.current.fadeOut(0.3);
+          actions.die.reset().fadeIn(0.2).play();
+          currentAction.current = actions.die;
+        } else if (currentAction.current) {
+          currentAction.current.fadeOut(0.3);
+          currentAction.current = null;
+        }
       }
+
+      // Let animation play for ~1.5s, then fade scale to 0
+      const DEATH_ANIM_DURATION = 1.5;
+      if (enemy.deathTimer > DEATH_ANIM_DURATION) {
+        const fadeProgress = (enemy.deathTimer - DEATH_ANIM_DURATION) * 2;
+        const scale = Math.max(0, 1 - fadeProgress);
+        groupRef.current.scale.setScalar(scale * ENEMY_MODEL_SCALE);
+      }
+
+      // Keep updating mixer so death anim plays
+      if (mixerRef.current) mixerRef.current.update(dt);
       return;
     }
 
@@ -320,7 +364,7 @@ function EnemyMesh({ enemy, clone, walkClips }) {
   return (
     <group ref={groupRef} scale={[ENEMY_MODEL_SCALE, ENEMY_MODEL_SCALE, ENEMY_MODEL_SCALE]}>
       {clone ? (
-        <primitive object={clone} />
+        <primitive object={clone} position={[0, ENEMY_MODEL_Y_OFFSET, 0]} />
       ) : (
         <mesh>
           <capsuleGeometry args={[30, 80, 4, 8]} />
@@ -426,6 +470,10 @@ export default function EnemyWaveManager({ groundY, wsSend }) {
   // Load walk animation from attack robot's own animation file
   const walkFBX = useFBX('/models/avatars/NPCs/attackrobot/animations/Walking.fbx');
   const walkClips = useMemo(() => (walkFBX?.animations || []), [walkFBX]);
+
+  // Load dying animation from astronaut shooting folder (Mixamo rig)
+  const dieFBX = useFBX('/models/avatars/astronaut/shooting/walking to dying.fbx');
+  const dieClips = useMemo(() => (dieFBX?.animations || []), [dieFBX]);
   
   // Clone pool
   const clonePool = useRef({});
@@ -489,7 +537,7 @@ export default function EnemyWaveManager({ groundY, wsSend }) {
       const allDead = enemies.length > 0 && enemies.every(e => e.dead);
       if (allDead) {
         // Clean up dead enemies after brief delay
-        const allFaded = enemies.every(e => e.deathTimer > 1.0);
+        const allFaded = enemies.every(e => e.deathTimer > 2.5);
         if (allFaded) {
           // Wave cleared!
           w.phase = 'cleared';
@@ -554,8 +602,8 @@ export default function EnemyWaveManager({ groundY, wsSend }) {
           enemy.z += nz * moveSpeed;
           enemy.rotY = Math.atan2(nx, nz);
           
-          // Snap to terrain
-          const terrainY = getTerrainHeightXZ(enemy.x, enemy.z);
+          // Snap to terrain (use full ground height including generated terrain)
+          const terrainY = getGroundHeightXZ(enemy.x, enemy.z);
           if (terrainY > -9000) {
             enemy.y = terrainY;
           }
@@ -706,10 +754,25 @@ export default function EnemyWaveManager({ groundY, wsSend }) {
       // Publish target for visual tracking (TurretTopTracker reads this)
       if (bestEnemy) {
         turretTargets[top.id] = { x: bestEnemy.x, y: bestEnemy.y, z: bestEnemy.z };
+        // Track lock-on time — turret needs to track before firing
+        if (!turretCooldowns.current[`${top.id}_lockStart`]) {
+          turretCooldowns.current[`${top.id}_lockStart`] = now;
+        }
+      } else {
+        // Lost target — reset lock-on
+        turretCooldowns.current[`${top.id}_lockStart`] = 0;
       }
 
-      // Fire if off cooldown and target acquired — dual beams side by side
-      if (bestEnemy && (now - lastFire >= tFireRate)) {
+      // Only fire when enemy is within fire range AND lock-on delay has elapsed
+      const tFireRange = topDef.turretFireRange || tRange;
+      const fireRangeSq = tFireRange * tFireRange;
+      const tLockDelay = topDef.turretLockDelay || 0;
+      const lockStart = turretCooldowns.current[`${top.id}_lockStart`] || 0;
+      const lockedOn = lockStart > 0 && (now - lockStart >= tLockDelay);
+      const canFire = bestEnemy && bestDSq <= fireRangeSq && lockedOn;
+
+      // Fire if off cooldown and target is within fire range — dual beams side by side
+      if (canFire && (now - lastFire >= tFireRate)) {
         bestEnemy.hp -= tDamage;
         turretCooldowns.current[top.id] = now;
         // Calculate perpendicular offset for dual barrels
@@ -784,7 +847,7 @@ export default function EnemyWaveManager({ groundY, wsSend }) {
   });
 
   // Render enemies
-  const aliveEnemies = enemiesRef.current.filter(e => e.deathTimer < 1.5);
+  const aliveEnemies = enemiesRef.current.filter(e => e.deathTimer < 2.5);
 
   return (
     <>
@@ -794,6 +857,7 @@ export default function EnemyWaveManager({ groundY, wsSend }) {
           enemy={enemy}
           clone={getClone(enemy.id)}
           walkClips={walkClips}
+          dieClips={dieClips}
         />
       ))}
       {/* Turret beam visuals */}

@@ -1026,8 +1026,8 @@ export function getGroundHeightXZAtY(wx, wz, worldY) {
 
       const halfW = w / 2, halfD = d / 2;
 
-      if (p.walkable && p.type !== 'ramp') {
-        // Flat walkable surface (foundation, floor)
+      if (p.walkable && p.type !== 'ramp' && p.type !== 'stairs') {
+        // Flat walkable surface (foundation, floor, platform)
         if (lx >= -halfW && lx <= halfW && lz >= -halfD && lz <= halfD) {
           const topY = (p.y - groundY) + h; // surface top Y relative to groundY
           // Only stand on it if player is above or near the top
@@ -1041,6 +1041,16 @@ export function getGroundHeightXZAtY(wx, wz, worldY) {
           const t = (lz + halfD) / (halfD * 2); // 0 at back, 1 at front
           const rampH = t * (p.dims?.[1] || 4);  // ramp height
           const topY = (p.y - groundY) + rampH;
+          surfaceMax = Math.max(surfaceMax, topY);
+        }
+      } else if (p.type === 'stairs') {
+        // Stairs: step-wise height increase along local Z
+        if (lx >= -halfW && lx <= halfW && lz >= -halfD && lz <= halfD) {
+          const steps = p.stairSteps || 8;
+          const t = (lz + halfD) / (halfD * 2); // 0 at back, 1 at front
+          const stepIndex = Math.min(Math.floor(t * steps), steps - 1);
+          const stepH = ((stepIndex + 1) / steps) * (p.dims?.[1] || 4);
+          const topY = (p.y - groundY) + stepH;
           surfaceMax = Math.max(surfaceMax, topY);
         }
       }

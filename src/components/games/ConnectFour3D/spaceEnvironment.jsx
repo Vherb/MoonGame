@@ -146,20 +146,20 @@ export function SpaceBackdrop({ speed = 0.3, dir = [1.0, 0.25], starIntensity = 
   const planet1Shader = useMemo(() => makePlanetShader('#557799', '#88aacc', 18.0, 0.4), [makePlanetShader]);
   const planet2Shader = useMemo(() => makePlanetShader('#704a2a', '#c79a5f', 8.0, 0.15), [makePlanetShader]);
 
-  // Dust points
-  const dustCount = 350;
+  // Dust points — spread across the larger scene
+  const dustCount = 500;
   const dustGeom = useMemo(() => {
     const g = new THREE.BufferGeometry();
     const positions = new Float32Array(dustCount * 3);
     for (let i = 0; i < dustCount; i++) {
-      positions[i*3+0] = (Math.random()-0.5) * 380;
-      positions[i*3+1] = (Math.random()-0.2) * 250;
-      positions[i*3+2] = (Math.random()-0.5) * 520;
+      positions[i*3+0] = (Math.random()-0.5) * 12000;
+      positions[i*3+1] = (Math.random()-0.1) * 8000;
+      positions[i*3+2] = (Math.random()-0.5) * 16000;
     }
     g.setAttribute('position', new THREE.BufferAttribute(positions, 3));
     return g;
   }, []);
-  const dustMat = useMemo(() => new THREE.PointsMaterial({ size: 0.9, color: '#aab3ff', opacity: 0.6, transparent: true, depthWrite: false }), []);
+  const dustMat = useMemo(() => new THREE.PointsMaterial({ size: 3.5, color: '#aab3ff', opacity: 0.45, transparent: true, depthWrite: false }), []);
 
   // Cleanup geometries/materials on unmount to avoid memory buildup in dev
   useEffect(() => {
@@ -184,8 +184,8 @@ export function SpaceBackdrop({ speed = 0.3, dir = [1.0, 0.25], starIntensity = 
       const dz = -uDir.y * speed * 1.2 * delta * 60.0;
       for (let i = 0; i < pos.count; i++) {
         let x = pos.getX(i) + dx; let z = pos.getZ(i) + dz;
-        if (x > 200) x = -200; if (x < -200) x = 200;
-        if (z > 280) z = -280; if (z < -280) z = 280;
+        if (x > 6000) x = -6000; if (x < -6000) x = 6000;
+        if (z > 8000) z = -8000; if (z < -8000) z = 8000;
         pos.setX(i, x); pos.setZ(i, z);
       }
       pos.needsUpdate = true;
@@ -195,24 +195,22 @@ export function SpaceBackdrop({ speed = 0.3, dir = [1.0, 0.25], starIntensity = 
     if (planet2Ref.current) planet2Ref.current.rotation.y = -t * 0.015;
   });
 
-  const radius = 800; // bring within camera far plane
+  const radius = 25000; // large enough to wrap entire terrain + far objects
   return (
     <group ref={groupRef}>
       {/* Stars dome */}
       <mesh renderOrder={-20}>
-        <sphereGeometry args={[radius, 48, 32]} />
+        <sphereGeometry args={[radius, 64, 48]} />
         <shaderMaterial ref={domeMatRef} args={[domeShader]} />
       </mesh>
       {/* Drifting dust for speed cue */}
       <points ref={dustRef} geometry={dustGeom} material={dustMat} renderOrder={-9} frustumCulled={false} />
-      {/* Planets: distributed around the play area - raised higher */}
-      {/* Blue planet FBX model - replacing striped shader planet */}
-      <BluePlanetFBX position={[-800, 250, -1500]} scale={4.5} />
-      {/* Pink planets replacing brownish shader planets */}
-      <PinkPlanetFBX position={[300, 150, -520]} scale={0.4} />
-      <PinkPlanetFBX position={[450, 180, 200]} scale={0.5} />
-      {/* Earth planet - new addition - 10x further away for rocket target */}
-      <EarthPlanetFBX position={[-4000, 2000, 3000]} scale={4.5} />
+      {/* Planets: pushed far into the sky as distant celestial bodies */}
+      <BluePlanetFBX position={[-12000, 6000, -18000]} scale={80} />
+      <PinkPlanetFBX position={[8000, 4500, -14000]} scale={12} />
+      <PinkPlanetFBX position={[15000, 3000, 10000]} scale={15} />
+      {/* Earth — large and distant */}
+      <EarthPlanetFBX position={[-20000, 8000, 15000]} scale={120} />
     </group>
   );
 }
@@ -395,23 +393,23 @@ export function FlybyAsteroids({ count = 3, speed = 0.22, dir = [1, 0.25] }) {
       m.position.x = Math.cos(angle) * base.radius;
       m.position.z = Math.sin(angle) * base.radius;
       
-      // Vertical movement - cycle through full range deterministically
-      const verticalRange = 6500; // Total range: -2000 to +4500
-      const verticalMin = -2000;
-      const cycleSpeed = base.risingSpeed * 80; // Increased from 60 for faster rising
+      // Vertical movement — cycle above terrain (2000 to 12000)
+      const verticalRange = 10000; // Total range: 2000 to 12000
+      const verticalMin = 2000;
+      const cycleSpeed = base.risingSpeed * 80;
       const rawPosition = asteroidTime * cycleSpeed;
       const progress = (rawPosition % verticalRange) / verticalRange;
       m.position.y = verticalMin + (progress * verticalRange);
       
-      // Fade out when approaching top (far in the distance), fade in when approaching bottom
-      if (m.position.y > 3500) {
-        // Fade out over the last 1000 units (3500 to 4500) - very far away
-        base.opacity = Math.max(0, 1 - (m.position.y - 3500) / 1000);
-      } else if (m.position.y < -1000) {
-        // Fade in over first 1000 units (-2000 to -1000) - very far below
-        base.opacity = Math.min(1, (m.position.y + 2000) / 1000);
+      // Fade at extremes of vertical range
+      if (m.position.y > 10000) {
+        // Fade out near top (10000 to 12000)
+        base.opacity = Math.max(0, 1 - (m.position.y - 10000) / 2000);
+      } else if (m.position.y < 3500) {
+        // Fade in near bottom (2000 to 3500)
+        base.opacity = Math.min(1, (m.position.y - 2000) / 1500);
       } else {
-        // Fully visible in the middle range (-1000 to 3500)
+        // Fully visible in the mid range (3500 to 10000)
         base.opacity = 1;
       }
       
@@ -521,7 +519,7 @@ export function GalaxyClusters({ clusterCount = 7, pointsPerCluster = 600, radiu
     return list;
   }, [clusterCount, pointsPerCluster, radius, spread]);
 
-  const mat = useMemo(() => new THREE.PointsMaterial({ size: 2.2, vertexColors: true, transparent: true, opacity: 0.95, depthWrite: false, sizeAttenuation: true, blending: THREE.AdditiveBlending }), []);
+  const mat = useMemo(() => new THREE.PointsMaterial({ size: 4.0, vertexColors: true, transparent: true, opacity: 0.95, depthWrite: false, sizeAttenuation: true, blending: THREE.AdditiveBlending }), []);
 
   // Dispose generated cluster geometries/material on unmount
   useEffect(() => {
@@ -537,13 +535,13 @@ export function GalaxyClusters({ clusterCount = 7, pointsPerCluster = 600, radiu
     groupRef.current.rotation.y += 0.0006; // slow yaw
     groupRef.current.position.x += -d.x * speed * 0.5;
     groupRef.current.position.z += -d.y * speed * 0.9;
-    // wrap position slightly to prevent drift far from origin
+    // wrap position to prevent drift far from origin
     const gx = groupRef.current.position.x;
     const gz = groupRef.current.position.z;
-    if (gx > 200) groupRef.current.position.x = -200;
-    if (gx < -200) groupRef.current.position.x = 200;
-    if (gz > 200) groupRef.current.position.z = -200;
-    if (gz < -200) groupRef.current.position.z = 200;
+    if (gx > 800) groupRef.current.position.x = -800;
+    if (gx < -800) groupRef.current.position.x = 800;
+    if (gz > 800) groupRef.current.position.z = -800;
+    if (gz < -800) groupRef.current.position.z = 800;
     // Per-cluster gentle spin
     if (childRefs.current) {
       for (let i = 0; i < childRefs.current.length; i++) {
@@ -601,9 +599,9 @@ export function StarSwarms({ maxSwarms = 5, basePoints = 500, dir = [1.0, 0.25],
     const list = [];
     for (let i = 0; i < maxSwarms; i++) {
       // Less clustery, larger spread so it reads as a background galaxy patch
-      const small = makeGeom(Math.floor(basePoints * 0.65), 30.0);
-      const medium = makeGeom(Math.floor(basePoints * 0.28), 22.0);
-      const large = makeGeom(Math.floor(basePoints * 0.12), 14.0);
+      const small = makeGeom(Math.floor(basePoints * 0.65), 200.0);
+      const medium = makeGeom(Math.floor(basePoints * 0.28), 150.0);
+      const large = makeGeom(Math.floor(basePoints * 0.12), 100.0);
       list.push({
         small, medium, large,
         state: { active: false, ttl: 0, spd: 0.5 + Math.random()*0.6 },
@@ -613,9 +611,9 @@ export function StarSwarms({ maxSwarms = 5, basePoints = 500, dir = [1.0, 0.25],
     return list;
   }, [maxSwarms, basePoints]);
 
-  const matSmall = useMemo(() => new THREE.PointsMaterial({ size: 1.2, color: '#e6ecff', transparent: true, opacity: 0.95, depthWrite: false, sizeAttenuation: true, blending: THREE.AdditiveBlending }), []);
-  const matMedium = useMemo(() => new THREE.PointsMaterial({ size: 2.0, color: '#ffffff', transparent: true, opacity: 0.95, depthWrite: false, sizeAttenuation: true, blending: THREE.AdditiveBlending }), []);
-  const matLarge = useMemo(() => new THREE.PointsMaterial({ size: 3.2, color: '#fff7df', transparent: true, opacity: 0.95, depthWrite: false, sizeAttenuation: true, blending: THREE.AdditiveBlending }), []);
+  const matSmall = useMemo(() => new THREE.PointsMaterial({ size: 3.0, color: '#e6ecff', transparent: true, opacity: 0.95, depthWrite: false, sizeAttenuation: true, blending: THREE.AdditiveBlending }), []);
+  const matMedium = useMemo(() => new THREE.PointsMaterial({ size: 5.0, color: '#ffffff', transparent: true, opacity: 0.95, depthWrite: false, sizeAttenuation: true, blending: THREE.AdditiveBlending }), []);
+  const matLarge = useMemo(() => new THREE.PointsMaterial({ size: 8.0, color: '#fff7df', transparent: true, opacity: 0.95, depthWrite: false, sizeAttenuation: true, blending: THREE.AdditiveBlending }), []);
 
   useEffect(() => {
     return () => { try { matSmall?.dispose?.(); matMedium?.dispose?.(); matLarge?.dispose?.(); } catch {} };
@@ -625,11 +623,11 @@ export function StarSwarms({ maxSwarms = 5, basePoints = 500, dir = [1.0, 0.25],
   const spawnSwarm = useCallback((item) => {
     const g = item.ref.current;
     if (!g) return;
-    // Place "waaaay" in the background but within far plane
-  const zStart = -650 + Math.random()*200; // [-650, -450]
-  const startX = (Math.random()-0.5) * 300; // centered horizontally
-  const updown = (Math.random()-0.2) * 110; // slight vertical variance
-  g.position.set(startX, updown, zStart);
+    // Place far in the background sky, outside terrain
+    const zStart = -15000 + Math.random()*5000; // [-15000, -10000]
+    const startX = (Math.random()-0.5) * 10000; // wide horizontal spread
+    const updown = 3000 + (Math.random()-0.3) * 6000; // elevated 0-9000
+    g.position.set(startX, updown, zStart);
     item.state.active = true;
     item.state.ttl = 15.0 + Math.random() * 7.0; // seconds
     item.state.spd = 0.6 + Math.random()*0.6;
@@ -655,8 +653,8 @@ export function StarSwarms({ maxSwarms = 5, basePoints = 500, dir = [1.0, 0.25],
       const vz = perp.y * speed * s.state.spd * 40.0 * delta + (-d.y * speed * 8.0 * delta);
       s.ref.current.position.x += vx;
       s.ref.current.position.z += vz;
-      // Keep within a background band and screen-ish X range
-      if (s.state.ttl <= 0 || Math.abs(s.ref.current.position.x) > 480 || s.ref.current.position.z < -900 || s.ref.current.position.z > -380) {
+      // Keep within far background band
+      if (s.state.ttl <= 0 || Math.abs(s.ref.current.position.x) > 12000 || s.ref.current.position.z < -20000 || s.ref.current.position.z > -8000) {
         s.state.active = false;
         s.ref.current.visible = false;
       }
@@ -819,15 +817,174 @@ export function DenseGalaxyField({ totalPoints = 220000, clusters = 12, radius =
     groupRef.current.position.z += -d.y * speed * 60.0 * delta;
     const gx = groupRef.current.position.x;
     const gz = groupRef.current.position.z;
-    if (gx > 200) groupRef.current.position.x = -200;
-    if (gx < -200) groupRef.current.position.x = 200;
-    if (gz > 200) groupRef.current.position.z = -200;
-    if (gz < -200) groupRef.current.position.z = 200;
+    if (gx > 800) groupRef.current.position.x = -800;
+    if (gx < -800) groupRef.current.position.x = 800;
+    if (gz > 800) groupRef.current.position.z = -800;
+    if (gz < -800) groupRef.current.position.z = 800;
   });
 
   return (
     <group ref={groupRef} renderOrder={-9}>
       <points geometry={geometry} material={material} frustumCulled={false} />
+    </group>
+  );
+}
+
+// Shooting stars / meteor streaks that flash across the sky periodically
+
+export function ShootingStars({ maxActive = 2, minInterval = 3, maxInterval = 8 }) {
+  const groupRef = useRef();
+  const timerRef = useRef(0);
+  const nextRef = useRef(minInterval + Math.random() * (maxInterval - minInterval));
+
+  // Pre-allocate streak data
+  const streaks = useMemo(() => {
+    const list = [];
+    for (let i = 0; i < maxActive; i++) {
+      list.push({
+        ref: React.createRef(),
+        state: { active: false, age: 0, lifetime: 0 },
+        startPos: new THREE.Vector3(),
+        velocity: new THREE.Vector3(),
+      });
+    }
+    return list;
+  }, [maxActive]);
+
+  // Trail geometry: thin stretched quad (2 triangles) for each streak
+  const trailGeo = useMemo(() => {
+    const g = new THREE.BufferGeometry();
+    // 4 vertices forming a thin ribbon
+    const positions = new Float32Array(4 * 3);
+    const uvs = new Float32Array(4 * 2);
+    uvs[0] = 0; uvs[1] = 0;
+    uvs[2] = 1; uvs[3] = 0;
+    uvs[4] = 1; uvs[5] = 1;
+    uvs[6] = 0; uvs[7] = 1;
+    g.setAttribute('position', new THREE.BufferAttribute(positions, 3));
+    g.setAttribute('uv', new THREE.BufferAttribute(uvs, 2));
+    g.setIndex([0, 1, 2, 0, 2, 3]);
+    return g;
+  }, []);
+
+  const trailMat = useMemo(() => new THREE.ShaderMaterial({
+    uniforms: {
+      uOpacity: { value: 1.0 },
+    },
+    vertexShader: `
+      varying vec2 vUv;
+      void main(){
+        vUv = uv;
+        gl_Position = projectionMatrix * modelViewMatrix * vec4(position, 1.0);
+      }
+    `,
+    fragmentShader: `
+      precision highp float;
+      varying vec2 vUv;
+      uniform float uOpacity;
+      void main(){
+        // Trail fades from bright head to transparent tail
+        float fade = smoothstep(0.0, 0.3, vUv.x) * smoothstep(1.0, 0.5, vUv.x);
+        // Thin across the width
+        float edge = smoothstep(0.0, 0.3, vUv.y) * smoothstep(1.0, 0.7, vUv.y);
+        vec3 col = mix(vec3(1.0, 0.95, 0.8), vec3(0.8, 0.85, 1.0), vUv.x);
+        float alpha = fade * edge * uOpacity;
+        gl_FragColor = vec4(col * 1.5, alpha);
+      }
+    `,
+    transparent: true,
+    depthWrite: false,
+    blending: THREE.AdditiveBlending,
+    side: THREE.DoubleSide,
+  }), []);
+
+  useEffect(() => {
+    return () => {
+      try { trailGeo?.dispose?.(); } catch {}
+      try { trailMat?.dispose?.(); } catch {}
+    };
+  }, [trailGeo, trailMat]);
+
+  const spawnStreak = useCallback((streak) => {
+    const g = streak.ref.current;
+    if (!g) return;
+    // Random sky position: high up, anywhere around
+    const angle = Math.random() * Math.PI * 2;
+    const dist = 8000 + Math.random() * 10000;
+    const y = 6000 + Math.random() * 10000;
+    streak.startPos.set(
+      Math.cos(angle) * dist,
+      y,
+      Math.sin(angle) * dist
+    );
+    // Fast diagonal velocity
+    const speed = 3000 + Math.random() * 4000;
+    const vAngle = angle + Math.PI * 0.3 + Math.random() * 0.4;
+    streak.velocity.set(
+      Math.cos(vAngle) * speed,
+      -speed * (0.3 + Math.random() * 0.4), // downward
+      Math.sin(vAngle) * speed
+    );
+    streak.state.active = true;
+    streak.state.age = 0;
+    streak.state.lifetime = 0.4 + Math.random() * 0.5; // 0.4-0.9 seconds
+    g.visible = true;
+  }, []);
+
+  useFrame((_, delta) => {
+    timerRef.current += delta;
+    if (timerRef.current >= nextRef.current) {
+      const target = streaks.find(s => !s.state.active);
+      if (target) spawnStreak(target);
+      timerRef.current = 0;
+      nextRef.current = minInterval + Math.random() * (maxInterval - minInterval);
+    }
+
+    // Update active streaks
+    streaks.forEach((s) => {
+      if (!s.state.active || !s.ref.current) return;
+      s.state.age += delta;
+      const t = s.state.age / s.state.lifetime;
+      if (t >= 1) {
+        s.state.active = false;
+        s.ref.current.visible = false;
+        return;
+      }
+
+      // Current head position
+      const head = s.startPos.clone().addScaledVector(s.velocity, s.state.age);
+      // Trail tail (slightly behind)
+      const trailLen = 600 + Math.random() * 200;
+      const dir = s.velocity.clone().normalize();
+      const tail = head.clone().addScaledVector(dir, -trailLen);
+
+      // Build thin ribbon perpendicular to camera view
+      const cam = new THREE.Vector3(0, 0, 0); // approximate camera at origin
+      const toHead = head.clone().sub(cam).normalize();
+      const cross = new THREE.Vector3().crossVectors(dir, toHead).normalize().multiplyScalar(15); // ribbon half-width
+
+      const pos = s.ref.current.geometry?.getAttribute?.('position');
+      if (!pos) return;
+      // tail-left, tail-right, head-right, head-left
+      pos.setXYZ(0, tail.x - cross.x, tail.y - cross.y, tail.z - cross.z);
+      pos.setXYZ(1, tail.x + cross.x, tail.y + cross.y, tail.z + cross.z);
+      pos.setXYZ(2, head.x + cross.x, head.y + cross.y, head.z + cross.z);
+      pos.setXYZ(3, head.x - cross.x, head.y - cross.y, head.z - cross.z);
+      pos.needsUpdate = true;
+
+      // Fade in then out
+      const opacity = t < 0.15 ? t / 0.15 : (1 - (t - 0.15) / 0.85);
+      if (s.ref.current.material) {
+        s.ref.current.material.uniforms.uOpacity.value = Math.max(0, opacity);
+      }
+    });
+  });
+
+  return (
+    <group ref={groupRef} renderOrder={-5}>
+      {streaks.map((s, i) => (
+        <mesh key={i} ref={s.ref} visible={false} geometry={trailGeo} material={trailMat} frustumCulled={false} />
+      ))}
     </group>
   );
 }

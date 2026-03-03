@@ -1,5 +1,5 @@
 {
-  "savedAt": 1772181497260,
+  "savedAt": 1772419015519,
   "rooms": [
     {
       "code": "MOON-GXCK",
@@ -8,18 +8,8 @@
       "hostId": 14,
       "hostUsername": "poop",
       "createdAt": 1772137871913,
-      "lastActivity": 1772181496746,
-      "players": [
-        {
-          "socketId": "d14c5e49",
-          "userId": 2,
-          "username": "vherb",
-          "character": "astronaut",
-          "avatar": "rocket",
-          "color": "#6366f1",
-          "joinedAt": 1772181215525
-        }
-      ],
+      "lastActivity": 1772419015011,
+      "players": [],
       "placedCubes": [],
       "audioVisualizers": [],
       "buildingPieces": [
@@ -64,16 +54,6 @@
           "ownerId": "local"
         },
         {
-          "id": 108,
-          "type": "foundation",
-          "x": 544,
-          "y": 11.402863579903302,
-          "z": -32,
-          "rotation": 0,
-          "health": 100,
-          "ownerId": "local"
-        },
-        {
           "id": 109,
           "type": "foundation",
           "x": 576,
@@ -107,16 +87,6 @@
           "id": 113,
           "type": "wallWindow",
           "x": 512,
-          "y": 12.602863579903302,
-          "z": -48,
-          "rotation": 0,
-          "health": 100,
-          "ownerId": "local"
-        },
-        {
-          "id": 114,
-          "type": "wallWindow",
-          "x": 544,
           "y": 12.602863579903302,
           "z": -48,
           "rotation": 0,
@@ -209,16 +179,6 @@
           "x": 496,
           "y": 12.602863579903302,
           "z": -32,
-          "rotation": -1.5707963267948966,
-          "health": 100,
-          "ownerId": "local"
-        },
-        {
-          "id": 125,
-          "type": "wallDoor",
-          "x": 496,
-          "y": 12.602863579903302,
-          "z": 0,
           "rotation": -1.5707963267948966,
           "health": 100,
           "ownerId": "local"
@@ -354,16 +314,6 @@
           "ownerId": "local"
         },
         {
-          "id": 140,
-          "type": "fence",
-          "x": 496,
-          "y": 43.80286357990331,
-          "z": 0,
-          "rotation": -1.5707963267948966,
-          "health": 100,
-          "ownerId": "local"
-        },
-        {
           "id": 141,
           "type": "fence",
           "x": 496,
@@ -377,16 +327,6 @@
           "id": 142,
           "type": "fence",
           "x": 512,
-          "y": 43.80286357990331,
-          "z": -48,
-          "rotation": 0,
-          "health": 100,
-          "ownerId": "local"
-        },
-        {
-          "id": 143,
-          "type": "fence",
-          "x": 544,
           "y": 43.80286357990331,
           "z": -48,
           "rotation": 0,
@@ -464,96 +404,6 @@
           "ownerId": "local"
         },
         {
-          "id": 151,
-          "type": "foundation",
-          "x": 448,
-          "y": 8.18093500662334,
-          "z": -96,
-          "rotation": 0,
-          "health": 100,
-          "ownerId": "local"
-        },
-        {
-          "id": 152,
-          "type": "foundation",
-          "x": 480,
-          "y": 8.18093500662334,
-          "z": -128,
-          "rotation": 0,
-          "health": 100,
-          "ownerId": "local"
-        },
-        {
-          "id": 153,
-          "type": "foundation",
-          "x": 448,
-          "y": 8.18093500662334,
-          "z": -128,
-          "rotation": 0,
-          "health": 100,
-          "ownerId": "local"
-        },
-        {
-          "id": 154,
-          "type": "turret",
-          "x": 448,
-          "y": 9.38093500662334,
-          "z": -128,
-          "rotation": 0,
-          "health": 100,
-          "ownerId": "local"
-        },
-        {
-          "id": 155,
-          "type": "turret",
-          "x": 480,
-          "y": 9.38093500662334,
-          "z": -128,
-          "rotation": 0,
-          "health": 100,
-          "ownerId": "local"
-        },
-        {
-          "id": 156,
-          "type": "spikeTrap",
-          "x": 448,
-          "y": 9.38093500662334,
-          "z": -96,
-          "rotation": 0,
-          "health": 100,
-          "ownerId": "local"
-        },
-        {
-          "id": 164,
-          "type": "turret",
-          "x": 608,
-          "y": 11.402863579903302,
-          "z": -64,
-          "rotation": 4.71238898038469,
-          "health": 100,
-          "ownerId": "local"
-        },
-        {
-          "id": 165,
-          "type": "turret",
-          "x": 448,
-          "y": 12.450210250770725,
-          "z": 64,
-          "rotation": 4.71238898038469,
-          "health": 100,
-          "ownerId": "local"
-        },
-        {
-          "id": 166,
-          "type": "turret",
-          "x": 512,
-          "y": 14.324599526845523,
-          "z": 128,
-          "rotation": 4.71238898038469,
-          "health": 100,
-          "ownerId": "local"
-        },
-        {
           "id": 167,
           "type": "turret",
           "x": 512,
@@ -610,22 +460,6 @@
           ]
         },
         {
-          "id": 182,
-          "type": "modelAsteroid",
-          "x": 544.4974510967465,
-          "y": 4.714638827746666,
-          "z": -118.52325499153878,
-          "rotation": 0,
-          "health": 100,
-          "ownerId": "local",
-          "modelPath": "/models/props/asteroid/asteroid.fbx",
-          "modelScale": [
-            0.13568999999463557,
-            0.13568999999463557,
-            0.13568999999463557
-          ]
-        },
-        {
           "id": 187,
           "type": "modelTable",
           "x": 545.4924372495606,
@@ -642,28 +476,12 @@
           ]
         },
         {
-          "id": 193,
-          "type": "turretBase",
-          "x": 228.03245924902615,
-          "y": -0.48847547585141093,
-          "z": -131.3890836596116,
-          "rotation": 0,
-          "health": 100,
-          "ownerId": "local",
-          "modelPath": "/models/props/guns/lazer_turret/bottom/Meshy_AI_Azure_Sentinel_0227064808_texture.fbx",
-          "modelScale": [
-            0.08,
-            0.08,
-            0.08
-          ]
-        },
-        {
           "id": 194,
           "type": "turretTop",
-          "x": 228.03245924902615,
-          "y": 5.511524524148589,
-          "z": -131.3890836596116,
-          "rotation": 0,
+          "x": 219.14926814924974,
+          "y": -27.73588334063916,
+          "z": -152.96193642577447,
+          "rotation": -0.8972400002360343,
           "health": 100,
           "ownerId": "local",
           "modelPath": "/models/props/guns/lazer_turret/top/Meshy_AI_Azure_Voyager_0227064824_texture.fbx",
@@ -727,6 +545,1010 @@
           "x": 546.5629889851131,
           "y": 49.80286357990331,
           "z": 7.383388162387656,
+          "rotation": 0,
+          "health": 100,
+          "ownerId": "local",
+          "modelPath": "/models/props/guns/lazer_turret/top/Meshy_AI_Azure_Voyager_0227064824_texture.fbx",
+          "modelScale": [
+            0.08,
+            0.08,
+            0.08
+          ]
+        },
+        {
+          "id": 199,
+          "type": "turretBase",
+          "x": 448,
+          "y": 5.80324565948359,
+          "z": -160,
+          "rotation": 0,
+          "health": 100,
+          "ownerId": "local",
+          "modelPath": "/models/props/guns/lazer_turret/bottom/Meshy_AI_Azure_Sentinel_0227064808_texture.fbx",
+          "modelScale": [
+            0.08,
+            0.08,
+            0.08
+          ]
+        },
+        {
+          "id": 200,
+          "type": "turretTop",
+          "x": 448,
+          "y": 11.80324565948359,
+          "z": -160,
+          "rotation": 0,
+          "health": 100,
+          "ownerId": "local",
+          "modelPath": "/models/props/guns/lazer_turret/top/Meshy_AI_Azure_Voyager_0227064824_texture.fbx",
+          "modelScale": [
+            0.08,
+            0.08,
+            0.08
+          ]
+        },
+        {
+          "id": 201,
+          "type": "turretBase",
+          "x": 640,
+          "y": 13.277209570467457,
+          "z": -128,
+          "rotation": 0,
+          "health": 100,
+          "ownerId": "local",
+          "modelPath": "/models/props/guns/lazer_turret/bottom/Meshy_AI_Azure_Sentinel_0227064808_texture.fbx",
+          "modelScale": [
+            0.08,
+            0.08,
+            0.08
+          ]
+        },
+        {
+          "id": 202,
+          "type": "turretTop",
+          "x": 640,
+          "y": 19.277209570467456,
+          "z": -128,
+          "rotation": 0,
+          "health": 100,
+          "ownerId": "local",
+          "modelPath": "/models/props/guns/lazer_turret/top/Meshy_AI_Azure_Voyager_0227064824_texture.fbx",
+          "modelScale": [
+            0.08,
+            0.08,
+            0.08
+          ]
+        },
+        {
+          "id": 203,
+          "type": "turretBase",
+          "x": 608,
+          "y": 14.219771806599704,
+          "z": 160,
+          "rotation": 0,
+          "health": 100,
+          "ownerId": "local",
+          "modelPath": "/models/props/guns/lazer_turret/bottom/Meshy_AI_Azure_Sentinel_0227064808_texture.fbx",
+          "modelScale": [
+            0.08,
+            0.08,
+            0.08
+          ]
+        },
+        {
+          "id": 204,
+          "type": "turretTop",
+          "x": 608,
+          "y": 20.219771806599702,
+          "z": 160,
+          "rotation": 0,
+          "health": 100,
+          "ownerId": "local",
+          "modelPath": "/models/props/guns/lazer_turret/top/Meshy_AI_Azure_Voyager_0227064824_texture.fbx",
+          "modelScale": [
+            0.08,
+            0.08,
+            0.08
+          ]
+        },
+        {
+          "id": 205,
+          "type": "foundation",
+          "x": 576,
+          "y": 11.402863579903302,
+          "z": -64,
+          "rotation": 0,
+          "health": 100,
+          "ownerId": "local"
+        },
+        {
+          "id": 206,
+          "type": "foundation",
+          "x": 576,
+          "y": 11.402863579903302,
+          "z": -96,
+          "rotation": 0,
+          "health": 100,
+          "ownerId": "local"
+        },
+        {
+          "id": 207,
+          "type": "foundation",
+          "x": 576,
+          "y": 11.402863579903302,
+          "z": -128,
+          "rotation": 0,
+          "health": 100,
+          "ownerId": "local"
+        },
+        {
+          "id": 209,
+          "type": "foundation",
+          "x": 512,
+          "y": 11.402863579903302,
+          "z": -128,
+          "rotation": 0,
+          "health": 100,
+          "ownerId": "local"
+        },
+        {
+          "id": 210,
+          "type": "foundation",
+          "x": 512,
+          "y": 11.402863579903302,
+          "z": -96,
+          "rotation": 0,
+          "health": 100,
+          "ownerId": "local"
+        },
+        {
+          "id": 211,
+          "type": "foundation",
+          "x": 512,
+          "y": 11.402863579903302,
+          "z": -64,
+          "rotation": 0,
+          "health": 100,
+          "ownerId": "local"
+        },
+        {
+          "id": 213,
+          "type": "foundation",
+          "x": 544,
+          "y": 11.402863579903302,
+          "z": -96,
+          "rotation": 0,
+          "health": 100,
+          "ownerId": "local"
+        },
+        {
+          "id": 214,
+          "type": "foundation",
+          "x": 512,
+          "y": 11.402863579903302,
+          "z": -160,
+          "rotation": 0,
+          "health": 100,
+          "ownerId": "local"
+        },
+        {
+          "id": 216,
+          "type": "foundation",
+          "x": 576,
+          "y": 11.402863579903302,
+          "z": -160,
+          "rotation": 0,
+          "health": 100,
+          "ownerId": "local"
+        },
+        {
+          "id": 217,
+          "type": "foundation",
+          "x": 576,
+          "y": 11.402863579903302,
+          "z": -192,
+          "rotation": 0,
+          "health": 100,
+          "ownerId": "local"
+        },
+        {
+          "id": 218,
+          "type": "foundation",
+          "x": 544,
+          "y": 11.402863579903302,
+          "z": -192,
+          "rotation": 0,
+          "health": 100,
+          "ownerId": "local"
+        },
+        {
+          "id": 219,
+          "type": "foundation",
+          "x": 512,
+          "y": 11.402863579903302,
+          "z": -192,
+          "rotation": 0,
+          "health": 100,
+          "ownerId": "local"
+        },
+        {
+          "id": 220,
+          "type": "foundation",
+          "x": 512,
+          "y": 11.402863579903302,
+          "z": -224,
+          "rotation": 0,
+          "health": 100,
+          "ownerId": "local"
+        },
+        {
+          "id": 221,
+          "type": "foundation",
+          "x": 544,
+          "y": 11.402863579903302,
+          "z": -224,
+          "rotation": 0,
+          "health": 100,
+          "ownerId": "local"
+        },
+        {
+          "id": 222,
+          "type": "foundation",
+          "x": 576,
+          "y": 11.402863579903302,
+          "z": -224,
+          "rotation": 0,
+          "health": 100,
+          "ownerId": "local"
+        },
+        {
+          "id": 223,
+          "type": "foundation",
+          "x": 576,
+          "y": 11.402863579903302,
+          "z": -256,
+          "rotation": 0,
+          "health": 100,
+          "ownerId": "local"
+        },
+        {
+          "id": 224,
+          "type": "foundation",
+          "x": 544,
+          "y": 11.402863579903302,
+          "z": -256,
+          "rotation": 0,
+          "health": 100,
+          "ownerId": "local"
+        },
+        {
+          "id": 225,
+          "type": "foundation",
+          "x": 512,
+          "y": 11.402863579903302,
+          "z": -256,
+          "rotation": 0,
+          "health": 100,
+          "ownerId": "local"
+        },
+        {
+          "id": 226,
+          "type": "wall",
+          "x": 496,
+          "y": 12.602863579903302,
+          "z": -64,
+          "rotation": -1.5707963267948966,
+          "health": 100,
+          "ownerId": "local"
+        },
+        {
+          "id": 227,
+          "type": "wall",
+          "x": 496,
+          "y": 12.602863579903302,
+          "z": -96,
+          "rotation": -1.5707963267948966,
+          "health": 100,
+          "ownerId": "local"
+        },
+        {
+          "id": 228,
+          "type": "wall",
+          "x": 496,
+          "y": 12.602863579903302,
+          "z": -128,
+          "rotation": -1.5707963267948966,
+          "health": 100,
+          "ownerId": "local"
+        },
+        {
+          "id": 229,
+          "type": "wall",
+          "x": 496,
+          "y": 12.602863579903302,
+          "z": -160,
+          "rotation": -1.5707963267948966,
+          "health": 100,
+          "ownerId": "local"
+        },
+        {
+          "id": 230,
+          "type": "wall",
+          "x": 496,
+          "y": 12.602863579903302,
+          "z": -192,
+          "rotation": -1.5707963267948966,
+          "health": 100,
+          "ownerId": "local"
+        },
+        {
+          "id": 231,
+          "type": "wall",
+          "x": 496,
+          "y": 12.602863579903302,
+          "z": -224,
+          "rotation": -1.5707963267948966,
+          "health": 100,
+          "ownerId": "local"
+        },
+        {
+          "id": 232,
+          "type": "wall",
+          "x": 512,
+          "y": 12.602863579903302,
+          "z": -272,
+          "rotation": 0,
+          "health": 100,
+          "ownerId": "local"
+        },
+        {
+          "id": 233,
+          "type": "wall",
+          "x": 496,
+          "y": 12.602863579903302,
+          "z": -256,
+          "rotation": -1.5707963267948966,
+          "health": 100,
+          "ownerId": "local"
+        },
+        {
+          "id": 234,
+          "type": "wall",
+          "x": 544,
+          "y": 12.602863579903302,
+          "z": -272,
+          "rotation": 0,
+          "health": 100,
+          "ownerId": "local"
+        },
+        {
+          "id": 235,
+          "type": "wall",
+          "x": 592,
+          "y": 12.602863579903302,
+          "z": -256,
+          "rotation": 1.5707963267948966,
+          "health": 100,
+          "ownerId": "local"
+        },
+        {
+          "id": 236,
+          "type": "wall",
+          "x": 576,
+          "y": 12.602863579903302,
+          "z": -272,
+          "rotation": 0,
+          "health": 100,
+          "ownerId": "local"
+        },
+        {
+          "id": 237,
+          "type": "wall",
+          "x": 592,
+          "y": 12.602863579903302,
+          "z": -224,
+          "rotation": 1.5707963267948966,
+          "health": 100,
+          "ownerId": "local"
+        },
+        {
+          "id": 238,
+          "type": "wall",
+          "x": 592,
+          "y": 12.602863579903302,
+          "z": -192,
+          "rotation": 1.5707963267948966,
+          "health": 100,
+          "ownerId": "local"
+        },
+        {
+          "id": 239,
+          "type": "wall",
+          "x": 592,
+          "y": 12.602863579903302,
+          "z": -160,
+          "rotation": 1.5707963267948966,
+          "health": 100,
+          "ownerId": "local"
+        },
+        {
+          "id": 240,
+          "type": "wall",
+          "x": 592,
+          "y": 12.602863579903302,
+          "z": -128,
+          "rotation": 1.5707963267948966,
+          "health": 100,
+          "ownerId": "local"
+        },
+        {
+          "id": 241,
+          "type": "wall",
+          "x": 592,
+          "y": 12.602863579903302,
+          "z": -96,
+          "rotation": 1.5707963267948966,
+          "health": 100,
+          "ownerId": "local"
+        },
+        {
+          "id": 242,
+          "type": "wall",
+          "x": 592,
+          "y": 12.602863579903302,
+          "z": -64,
+          "rotation": 1.5707963267948966,
+          "health": 100,
+          "ownerId": "local"
+        },
+        {
+          "id": 243,
+          "type": "floor",
+          "x": 576,
+          "y": 42.6028635799033,
+          "z": -256,
+          "rotation": 1.5707963267948966,
+          "health": 100,
+          "ownerId": "local"
+        },
+        {
+          "id": 244,
+          "type": "floor",
+          "x": 576,
+          "y": 42.6028635799033,
+          "z": -224,
+          "rotation": 1.5707963267948966,
+          "health": 100,
+          "ownerId": "local"
+        },
+        {
+          "id": 245,
+          "type": "wallWindow",
+          "x": 592,
+          "y": 43.8028635799033,
+          "z": -256,
+          "rotation": 1.5707963267948966,
+          "health": 100,
+          "ownerId": "local"
+        },
+        {
+          "id": 246,
+          "type": "wallWindow",
+          "x": 592,
+          "y": 43.8028635799033,
+          "z": -224,
+          "rotation": 1.5707963267948966,
+          "health": 100,
+          "ownerId": "local"
+        },
+        {
+          "id": 247,
+          "type": "floor",
+          "x": 576,
+          "y": 42.60286357990331,
+          "z": -192,
+          "rotation": 0,
+          "health": 100,
+          "ownerId": "local"
+        },
+        {
+          "id": 248,
+          "type": "floor",
+          "x": 576,
+          "y": 42.6028635799033,
+          "z": -128,
+          "rotation": 1.5707963267948966,
+          "health": 100,
+          "ownerId": "local"
+        },
+        {
+          "id": 249,
+          "type": "floor",
+          "x": 576,
+          "y": 42.60286357990331,
+          "z": -160,
+          "rotation": 0,
+          "health": 100,
+          "ownerId": "local"
+        },
+        {
+          "id": 250,
+          "type": "floor",
+          "x": 576,
+          "y": 42.6028635799033,
+          "z": -96,
+          "rotation": 1.5707963267948966,
+          "health": 100,
+          "ownerId": "local"
+        },
+        {
+          "id": 251,
+          "type": "floor",
+          "x": 576,
+          "y": 42.6028635799033,
+          "z": -64,
+          "rotation": 1.5707963267948966,
+          "health": 100,
+          "ownerId": "local"
+        },
+        {
+          "id": 252,
+          "type": "floor",
+          "x": 544,
+          "y": 42.60286357990331,
+          "z": -64,
+          "rotation": 0,
+          "health": 100,
+          "ownerId": "local"
+        },
+        {
+          "id": 253,
+          "type": "floor",
+          "x": 512,
+          "y": 42.60286357990331,
+          "z": -96,
+          "rotation": 0,
+          "health": 100,
+          "ownerId": "local"
+        },
+        {
+          "id": 254,
+          "type": "floor",
+          "x": 512,
+          "y": 42.6028635799033,
+          "z": -64,
+          "rotation": -1.5707963267948966,
+          "health": 100,
+          "ownerId": "local"
+        },
+        {
+          "id": 255,
+          "type": "floor",
+          "x": 512,
+          "y": 42.6028635799033,
+          "z": -128,
+          "rotation": -1.5707963267948966,
+          "health": 100,
+          "ownerId": "local"
+        },
+        {
+          "id": 256,
+          "type": "floor",
+          "x": 512,
+          "y": 42.6028635799033,
+          "z": -160,
+          "rotation": -1.5707963267948966,
+          "health": 100,
+          "ownerId": "local"
+        },
+        {
+          "id": 257,
+          "type": "floor",
+          "x": 512,
+          "y": 42.6028635799033,
+          "z": -192,
+          "rotation": -1.5707963267948966,
+          "health": 100,
+          "ownerId": "local"
+        },
+        {
+          "id": 258,
+          "type": "floor",
+          "x": 512,
+          "y": 42.6028635799033,
+          "z": -224,
+          "rotation": -1.5707963267948966,
+          "health": 100,
+          "ownerId": "local"
+        },
+        {
+          "id": 259,
+          "type": "floor",
+          "x": 512,
+          "y": 42.6028635799033,
+          "z": -256,
+          "rotation": 0,
+          "health": 100,
+          "ownerId": "local"
+        },
+        {
+          "id": 260,
+          "type": "floor",
+          "x": 544,
+          "y": 42.60286357990331,
+          "z": -256,
+          "rotation": 0,
+          "health": 100,
+          "ownerId": "local"
+        },
+        {
+          "id": 261,
+          "type": "floor",
+          "x": 544,
+          "y": 42.60286357990331,
+          "z": -192,
+          "rotation": 0,
+          "health": 100,
+          "ownerId": "local"
+        },
+        {
+          "id": 262,
+          "type": "floor",
+          "x": 544,
+          "y": 42.60286357990331,
+          "z": -224,
+          "rotation": 0,
+          "health": 100,
+          "ownerId": "local"
+        },
+        {
+          "id": 265,
+          "type": "floor",
+          "x": 544,
+          "y": 42.60286357990331,
+          "z": -96,
+          "rotation": 0,
+          "health": 100,
+          "ownerId": "local"
+        },
+        {
+          "id": 266,
+          "type": "wallWindow",
+          "x": 592,
+          "y": 43.80286357990331,
+          "z": -192,
+          "rotation": 1.5707963267948966,
+          "health": 100,
+          "ownerId": "local"
+        },
+        {
+          "id": 267,
+          "type": "wallWindow",
+          "x": 592,
+          "y": 43.80286357990331,
+          "z": -160,
+          "rotation": 1.5707963267948966,
+          "health": 100,
+          "ownerId": "local"
+        },
+        {
+          "id": 268,
+          "type": "wallWindow",
+          "x": 592,
+          "y": 43.8028635799033,
+          "z": -128,
+          "rotation": 1.5707963267948966,
+          "health": 100,
+          "ownerId": "local"
+        },
+        {
+          "id": 269,
+          "type": "wallWindow",
+          "x": 592,
+          "y": 43.8028635799033,
+          "z": -96,
+          "rotation": 1.5707963267948966,
+          "health": 100,
+          "ownerId": "local"
+        },
+        {
+          "id": 270,
+          "type": "wallWindow",
+          "x": 592,
+          "y": 43.8028635799033,
+          "z": -64,
+          "rotation": 1.5707963267948966,
+          "health": 100,
+          "ownerId": "local"
+        },
+        {
+          "id": 271,
+          "type": "wallWindow",
+          "x": 496,
+          "y": 43.8028635799033,
+          "z": -64,
+          "rotation": -1.5707963267948966,
+          "health": 100,
+          "ownerId": "local"
+        },
+        {
+          "id": 272,
+          "type": "wallWindow",
+          "x": 496,
+          "y": 43.80286357990331,
+          "z": -96,
+          "rotation": -1.5707963267948966,
+          "health": 100,
+          "ownerId": "local"
+        },
+        {
+          "id": 273,
+          "type": "wallWindow",
+          "x": 496,
+          "y": 43.8028635799033,
+          "z": -128,
+          "rotation": -1.5707963267948966,
+          "health": 100,
+          "ownerId": "local"
+        },
+        {
+          "id": 274,
+          "type": "wallWindow",
+          "x": 496,
+          "y": 43.8028635799033,
+          "z": -160,
+          "rotation": -1.5707963267948966,
+          "health": 100,
+          "ownerId": "local"
+        },
+        {
+          "id": 275,
+          "type": "wallWindow",
+          "x": 496,
+          "y": 43.8028635799033,
+          "z": -192,
+          "rotation": -1.5707963267948966,
+          "health": 100,
+          "ownerId": "local"
+        },
+        {
+          "id": 276,
+          "type": "wallWindow",
+          "x": 496,
+          "y": 43.8028635799033,
+          "z": -224,
+          "rotation": -1.5707963267948966,
+          "health": 100,
+          "ownerId": "local"
+        },
+        {
+          "id": 277,
+          "type": "wallWindow",
+          "x": 496,
+          "y": 43.8028635799033,
+          "z": -256,
+          "rotation": -1.5707963267948966,
+          "health": 100,
+          "ownerId": "local"
+        },
+        {
+          "id": 278,
+          "type": "wallWindow",
+          "x": 512,
+          "y": 43.8028635799033,
+          "z": -272,
+          "rotation": 0,
+          "health": 100,
+          "ownerId": "local"
+        },
+        {
+          "id": 279,
+          "type": "wallWindow",
+          "x": 544,
+          "y": 43.80286357990331,
+          "z": -272,
+          "rotation": 0,
+          "health": 100,
+          "ownerId": "local"
+        },
+        {
+          "id": 280,
+          "type": "wallWindow",
+          "x": 576,
+          "y": 43.8028635799033,
+          "z": -272,
+          "rotation": 0,
+          "health": 100,
+          "ownerId": "local"
+        },
+        {
+          "id": 281,
+          "type": "foundation",
+          "x": 544,
+          "y": 11.402863579903302,
+          "z": -64,
+          "rotation": 0,
+          "health": 100,
+          "ownerId": "local"
+        },
+        {
+          "id": 282,
+          "type": "foundation",
+          "x": 544,
+          "y": 11.402863579903302,
+          "z": -128,
+          "rotation": 0,
+          "health": 100,
+          "ownerId": "local"
+        },
+        {
+          "id": 283,
+          "type": "foundation",
+          "x": 544,
+          "y": 11.402863579903302,
+          "z": -160,
+          "rotation": 0,
+          "health": 100,
+          "ownerId": "local"
+        },
+        {
+          "id": 286,
+          "type": "foundation",
+          "x": 544,
+          "y": 11.402863579903302,
+          "z": -32,
+          "rotation": 0,
+          "health": 100,
+          "ownerId": "local"
+        },
+        {
+          "id": 287,
+          "type": "wallDoor",
+          "x": 544,
+          "y": 12.602863579903302,
+          "z": -48,
+          "rotation": 3.141592653589793,
+          "health": 100,
+          "ownerId": "local"
+        },
+        {
+          "id": 290,
+          "type": "wallDoor",
+          "x": 496,
+          "y": 12.602863579903302,
+          "z": 0,
+          "rotation": -1.5707963267948966,
+          "health": 100,
+          "ownerId": "local"
+        },
+        {
+          "id": 291,
+          "type": "fence",
+          "x": 496,
+          "y": 43.80286357990331,
+          "z": 0,
+          "rotation": -1.5707963267948966,
+          "health": 100,
+          "ownerId": "local"
+        },
+        {
+          "id": 292,
+          "type": "turretBase",
+          "x": 480,
+          "y": 17.211946520423908,
+          "z": -384,
+          "rotation": 0,
+          "health": 100,
+          "ownerId": "local",
+          "modelPath": "/models/props/guns/lazer_turret/bottom/Meshy_AI_Azure_Sentinel_0227064808_texture.fbx",
+          "modelScale": [
+            0.08,
+            0.08,
+            0.08
+          ]
+        },
+        {
+          "id": 293,
+          "type": "turretTop",
+          "x": 480,
+          "y": 23.211946520423908,
+          "z": -384,
+          "rotation": 0,
+          "health": 100,
+          "ownerId": "local",
+          "modelPath": "/models/props/guns/lazer_turret/top/Meshy_AI_Azure_Voyager_0227064824_texture.fbx",
+          "modelScale": [
+            0.08,
+            0.08,
+            0.08
+          ]
+        },
+        {
+          "id": 294,
+          "type": "turretBase",
+          "x": -192.2531340140285,
+          "y": 5.133219833190983,
+          "z": 172.1398431481922,
+          "rotation": 0,
+          "health": 100,
+          "ownerId": "local",
+          "modelPath": "/models/props/guns/lazer_turret/bottom/Meshy_AI_Azure_Sentinel_0227064808_texture.fbx",
+          "modelScale": [
+            0.08,
+            0.08,
+            0.08
+          ]
+        },
+        {
+          "id": 295,
+          "type": "turretTop",
+          "x": -192.2531340140285,
+          "y": 11.133219833190983,
+          "z": 172.1398431481922,
+          "rotation": 0,
+          "health": 100,
+          "ownerId": "local",
+          "modelPath": "/models/props/guns/lazer_turret/top/Meshy_AI_Azure_Voyager_0227064824_texture.fbx",
+          "modelScale": [
+            0.08,
+            0.08,
+            0.08
+          ]
+        },
+        {
+          "id": 296,
+          "type": "turretBase",
+          "x": 416,
+          "y": 8.179363024616853,
+          "z": -64,
+          "rotation": -0.07320000003576278,
+          "health": 100,
+          "ownerId": "local",
+          "modelPath": "/models/props/guns/lazer_turret/bottom/Meshy_AI_Azure_Sentinel_0227064808_texture.fbx",
+          "modelScale": [
+            0.08,
+            0.08,
+            0.08
+          ]
+        },
+        {
+          "id": 297,
+          "type": "turretTop",
+          "x": 416,
+          "y": 14.179363024616853,
+          "z": -64,
+          "rotation": -0.07320000003576278,
+          "health": 100,
+          "ownerId": "local",
+          "modelPath": "/models/props/guns/lazer_turret/top/Meshy_AI_Azure_Voyager_0227064824_texture.fbx",
+          "modelScale": [
+            0.08,
+            0.08,
+            0.08
+          ]
+        },
+        {
+          "id": 299,
+          "type": "turretTop",
+          "x": 320,
+          "y": 11.803925431339476,
+          "z": -192,
+          "rotation": 0,
+          "health": 100,
+          "ownerId": "local",
+          "modelPath": "/models/props/guns/lazer_turret/top/Meshy_AI_Azure_Voyager_0227064824_texture.fbx",
+          "modelScale": [
+            0.08,
+            0.08,
+            0.08
+          ]
+        },
+        {
+          "id": 300,
+          "type": "turretTop",
+          "x": 320,
+          "y": 11.803925431339476,
+          "z": -192,
           "rotation": 0,
           "health": 100,
           "ownerId": "local",
@@ -846,24 +1668,6 @@
           "tiltZ": 9.650461908839045e-46,
           "pitch": 0.1401897355321197,
           "lift": 13.114285122393422
-        },
-        "d14c5e49": {
-          "x": 457.1977596251826,
-          "z": -2.1270109717424788,
-          "yaw": -2.6795309414730677,
-          "run": false,
-          "isJumping": false,
-          "isJetpacking": false,
-          "isShooting": false,
-          "isAiming": false,
-          "isWalkingBackward": false,
-          "isStrafeLeft": false,
-          "isStrafeRight": false,
-          "isDead": false,
-          "tiltX": -2.382398183295232e-64,
-          "tiltZ": 7.28352052388178e-65,
-          "pitch": 0.13506385129907483,
-          "lift": 16.09730142522466
         }
       },
       "games": []

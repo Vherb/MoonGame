@@ -64,8 +64,8 @@ export const PIECE_TYPES = {
     snapType: 'wall',
     walkable: false,
     hasWindow: true,
-    windowWidth: 10.0,
-    windowHeight: 8.0,
+    windowWidth: 18.0,
+    windowHeight: 16.0,
     windowY: 16.0,  // center Y of window relative to wall base
   },
   floor: {
@@ -123,6 +123,31 @@ export const PIECE_TYPES = {
     snapType: 'wall',
     walkable: false,
     healthMultiplier: 3,
+  },
+  stairs: {
+    id: 'stairs',
+    label: 'Stairs',
+    glyph: '🪜',
+    description: 'Stepped staircase between levels. Walk up like a ramp.',
+    dims: [GRID_SIZE, WALL_HEIGHT, GRID_SIZE],
+    cost: {},
+    color: '#7A7A8A',
+    snapType: 'ramp',
+    walkable: true,
+    isStairs: true,
+    stairSteps: 8,
+  },
+  platform: {
+    id: 'platform',
+    label: 'Platform',
+    glyph: '▪️',
+    description: 'Half-size floor extension. Good for balconies and walkways.',
+    dims: [GRID_SIZE / 2, FLOOR_THICKNESS, GRID_SIZE],
+    cost: {},
+    color: '#6E6E7E',
+    snapType: 'floor',
+    walkable: true,
+    isPlatform: true,
   },
   spikeTrap: {
     id: 'spikeTrap',
@@ -208,8 +233,10 @@ export const PIECE_TYPES = {
     modelPath: '/models/props/guns/lazer_turret/top/Meshy_AI_Azure_Voyager_0227064824_texture.fbx',
     defaultScale: [0.08, 0.08, 0.08],
     turretRange: 400,
-    turretDamage: 50,
-    turretFireRate: 0.8,
+    turretFireRange: 350,
+    turretDamage: 15,
+    turretFireRate: 1.2,
+    turretLockDelay: 0.5,
   },
 
   /* ── Model-based props ─────────────────────────────────── */
@@ -315,7 +342,7 @@ export const PIECE_TYPES = {
 
 // Ordered list for cycling through pieces
 export const PIECE_ORDER = [
-  'foundation', 'wall', 'wallDoor', 'wallWindow', 'floor', 'ramp',
+  'foundation', 'wall', 'wallDoor', 'wallWindow', 'floor', 'ramp', 'stairs', 'platform',
   'halfWall', 'fence', 'reinforcedWall', 'spikeTrap', 'chest', 'lightPost', 'turret',
   // Model turret (two-piece)
   'turretBase', 'turretTop',
@@ -366,7 +393,7 @@ export function getSnapPoints(piece, placedPiece) {
     points.push({
       position: [x, floorAboveY, z],
       rotation: rotation,
-      accepts: ['floor', 'foundation', 'ramp'],
+      accepts: ['floor', 'foundation', 'ramp', 'stairs', 'platform'],
       type: 'floor',
     });
     // Ramp from this level
@@ -375,27 +402,18 @@ export function getSnapPoints(piece, placedPiece) {
       points.push({
         position: [rx, y + FLOOR_THICKNESS, rz],
         rotation: rotation + d.rot,
-        accepts: ['ramp'],
+        accepts: ['ramp', 'stairs'],
         type: 'ramp',
       });
     }
-    // Adjacent foundations (4 sides) — Y adjusted for terrain at the new location
-    const _fhG = ROWS * (CELL + GAP) - GAP + 0.6;
-    const _groundY = -_fhG / 2 - GROUND_CLEAR;
+    // Adjacent foundations (4 sides) — keep same Y as parent for flat floors
     for (const d of dirs) {
       const [fx, fz] = rotate(d.lx * 2, d.lz * 2);
-      // Sample terrain at new position's 4 corners + center, take max
-      const halfG = GRID_SIZE / 2;
-      const hC = getTerrainHeightXZ(fx, fz);
-      const hNE = getTerrainHeightXZ(fx + halfG, fz - halfG);
-      const hNW = getTerrainHeightXZ(fx - halfG, fz - halfG);
-      const hSE = getTerrainHeightXZ(fx + halfG, fz + halfG);
-      const hSW = getTerrainHeightXZ(fx - halfG, fz + halfG);
-      const terrainY = _groundY + Math.max(0, Math.max(hC, hNE, hNW, hSE, hSW));
-      // Use the higher of parent Y or terrain Y so foundation doesn't clip
-      const adjY = Math.max(y, terrainY);
+      // Keep adjacent foundations at the SAME Y as the parent piece
+      // so you get a flat floor even when building into a hillside.
+      // The foundation embeds into terrain rather than riding up over it.
       points.push({
-        position: [fx, adjY, fz],
+        position: [fx, y, fz],
         rotation: rotation,
         accepts: ['foundation'],
         type: 'floor',
@@ -422,7 +440,7 @@ export function getSnapPoints(piece, placedPiece) {
     points.push({
       position: [x, y + FLOOR_THICKNESS, z],
       rotation: rotation,
-      accepts: ['chest', 'lightPost', 'turret', 'spikeTrap',
+      accepts: ['chest', 'lightPost', 'turret', 'spikeTrap', 'platform',
         ...Object.keys(PIECE_TYPES).filter(k => PIECE_TYPES[k].isModel && !PIECE_TYPES[k].isTurretTop)],
       type: 'prop',
     });

@@ -40,7 +40,7 @@ import {
 
 import { ModelErrorBoundary, RoundedRectShape, FrontPlate, SideSupports, BackShadowCatcher, NeonRings, NeonBorder, Piece } from './boardComponents';
 import { TableFBX, ClassicTableFBX } from './tableComponents';
-import { SpaceBackdrop, BluePlanetFBX, PinkPlanetFBX, EarthPlanetFBX, FlybyAsteroids, GalaxyClusters, StarSwarms, DenseGalaxyField } from './spaceEnvironment';
+import { SpaceBackdrop, BluePlanetFBX, PinkPlanetFBX, EarthPlanetFBX, FlybyAsteroids, GalaxyClusters, StarSwarms, DenseGalaxyField, ShootingStars } from './spaceEnvironment';
 import { TerrainSculptor, TerrainLabels, TerrainGeometry, AsteroidFloor, TexturedShadowOverlay, LunarTerrain, GiantMoonSphere } from './terrainComponents';
 import { DraggableObject, Stairs2PlacedModel, AsteroidPlacedModel, RoverPlacedModel, CustomPlacedModel, TablePlacedModel, detectEdgeSnap, AIContentRenderer, AIContentSyncedWithMesh, PlacedCube } from './placedObjects';
 import { AsteroidFBXProp, AsteroidScatter, RocketPedestal, ExtraStairsFBX, Staircase, PlatformBlock, StairCollisionDebug } from './staircaseComponents';
@@ -260,6 +260,21 @@ function ConnectFour3DView({ board, lastMove, colors, onSelectColumn, flip180 = 
       flameSpread: jetpackFlameSpread,
     };
   }, [jetpackTunerPos, jetpackTunerRot, jetpackTunerScale, jetpackTunerForceVisible, jetpackFlamePos, jetpackFlameSpread]);
+
+  // ── Turret Top offset editor state — adjusts turret-top model position on base ──
+  const [turretTopOffsetPos, setTurretTopOffsetPos] = useState([0, 0, 0]);
+  const [turretTopOffsetRot, setTurretTopOffsetRot] = useState([0, 0, 0]);
+  const [turretTopOffsetScale, setTurretTopOffsetScale] = useState(1.0);
+  const [turretEditorOpen, setTurretEditorOpen] = useState(false);
+  const [turretFreezeRotation, setTurretFreezeRotation] = useState(false);
+  useEffect(() => {
+    window.__CF_TURRET_TOP_OFFSET__ = {
+      pos: [...turretTopOffsetPos],
+      rot: [...turretTopOffsetRot],
+      scale: turretTopOffsetScale,
+      freeze: turretFreezeRotation,
+    };
+  }, [turretTopOffsetPos, turretTopOffsetRot, turretTopOffsetScale, turretFreezeRotation]);
 
   // First-person camera adjustment state
   const [fpCamHeight, setFpCamHeight] = useState(9.5);
@@ -5839,12 +5854,13 @@ function ConnectFour3DView({ board, lastMove, colors, onSelectColumn, flip180 = 
 
           {/* Keep the board unrotated; use camera side for Player 2 */}
           <group position={[0, groupY, 0]} rotation={[0, 0, 0]}>
-            {/* Space background: stars, dust, planets */}
+            {/* Space background: stars, dust, planets, nebula, milky way */}
             <SpaceBackdrop speed={0.22} dir={[1.0, 0.25]} starIntensity={3.2} clusterStrength={5.0} />
-            <DenseGalaxyField totalPoints={600} clusters={6} radius={750} clusterSpread={0.02} speed={0.05} dir={[1.0, 0.25]} sizeRange={[1.4, 3.6]} />
-            <GalaxyClusters clusterCount={5} pointsPerCluster={100} radius={720} spread={0.028} speed={0.06} dir={[1.0, 0.25]} />
+            <DenseGalaxyField totalPoints={1200} clusters={8} radius={22000} clusterSpread={0.02} speed={0.05} dir={[1.0, 0.25]} sizeRange={[2.0, 5.0]} />
+            <GalaxyClusters clusterCount={5} pointsPerCluster={100} radius={20000} spread={0.02} speed={0.06} dir={[1.0, 0.25]} />
             <FlybyAsteroids count={15} speed={0.18} dir={[1.0, 0.25]} />
             <StarSwarms maxSwarms={3} basePoints={120} speed={0.55} dir={[1.0, 0.25]} />
+            <ShootingStars maxActive={2} minInterval={3} maxInterval={8} />
             {/* Lunar terrain with hills and mounds - characters walk on the surface */}
             <LunarTerrain radius={TERRAIN_RADIUS} flatRadius={50} showCollisionBox={showCollisionMeshes} />
             {/* Resource nodes scattered across terrain */}
@@ -5860,7 +5876,7 @@ function ConnectFour3DView({ board, lastMove, colors, onSelectColumn, flip180 = 
               <EnemyWaveManager groundY={groundY} wsSend={onAvatarMove || null} />
             </Suspense>
             {/* Giant moon sphere hovering off to the side */}
-            <GiantMoonSphere position={[8000, 4000, -10000]} radius={2000} />
+            <GiantMoonSphere position={[12000, 5000, -15000]} radius={4000} />
             {/* Simple staircase you can walk up */}
             <Staircase rocketPositionRef={rocketPositionRef} setFollowRocket={setFollowRocket} showCollisionMeshes={showCollisionMeshes} />
             {/* Extra placed props */}
@@ -6470,6 +6486,138 @@ function ConnectFour3DView({ board, lastMove, colors, onSelectColumn, flip180 = 
           </div>
         </div>
       </>)}
+
+      {/* ── Turret Top Offset Editor (toggle button + panel) ── */}
+      {!turretEditorOpen && (
+        <button
+          onClick={() => setTurretEditorOpen(true)}
+          style={{
+            position:'absolute', top:150, left:10, zIndex:99999,
+            background:'rgba(0,0,0,0.85)', border:'1px solid rgba(0,200,255,0.3)',
+            color:'#00c8ff', borderRadius:8, padding:'6px 14px', cursor:'pointer',
+            fontSize:12, fontFamily:'monospace', pointerEvents:'auto',
+            boxShadow:'0 0 10px rgba(0,200,255,0.1)'
+          }}
+        >&#128299; Turret Editor</button>
+      )}
+      {turretEditorOpen && (
+        <div
+          style={{
+            position:'absolute', top:70, left:680, minWidth:320, padding:14,
+            background:'rgba(0,0,0,0.92)', color:'#00c8ff',
+            borderRadius:10, zIndex:99999, fontSize:13, fontFamily:'monospace',
+            pointerEvents:'auto', userSelect:'none',
+            border:'1px solid rgba(0,200,255,0.3)',
+            boxShadow:'0 0 20px rgba(0,200,255,0.15)',
+          }}
+          onMouseDown={e => { e.stopPropagation(); if (document.pointerLockElement) document.exitPointerLock(); }}
+          onClick={e => e.stopPropagation()}
+          onWheel={e => e.stopPropagation()}
+        >
+          {/* TITLE BAR */}
+          <div style={{ display:'flex', alignItems:'center', marginBottom:8 }}>
+            <span style={{ color:'#00c8ff', fontSize:14, marginRight:6 }}>&#128299;</span>
+            <span style={{ fontWeight:'bold', color:'#fff', fontSize:14, flex:1 }}>Turret Top Offset</span>
+            <button
+              onClick={() => setTurretEditorOpen(false)}
+              style={{ background:'transparent', border:'1px solid #555', color:'#f55', borderRadius:4, padding:'1px 8px', cursor:'pointer', fontSize:12, fontFamily:'monospace' }}
+              title="Close"
+            >&times;</button>
+          </div>
+
+          {/* FREEZE TOGGLE */}
+          <div style={{ display:'flex', alignItems:'center', gap:8, marginBottom:10, justifyContent:'center' }}>
+            <label style={{ cursor:'pointer', color: turretFreezeRotation ? '#0f0' : '#f55', fontSize:12 }}>
+              <input type="checkbox" checked={turretFreezeRotation} onChange={e => setTurretFreezeRotation(e.target.checked)} style={{ marginRight:4, cursor:'pointer' }} />
+              Freeze Rotation
+            </label>
+          </div>
+
+          {/* POSITION OFFSET */}
+          <div style={{ fontWeight:'bold', color:'#fff', fontSize:13, marginBottom:4, borderBottom:'1px solid #333', paddingBottom:3 }}>
+            Position Offset
+          </div>
+          {['X','Y','Z'].map((axis, ai) => (
+            <div key={axis} style={{ display:'flex', alignItems:'center', gap:4, marginBottom:4 }}>
+              <span style={{ width:32, textAlign:'right', color:'#888', fontSize:11 }}>{axis}</span>
+              <button style={{ background:'transparent', border:'1px solid #f55', color:'#f55', borderRadius:3, padding:'1px 5px', cursor:'pointer', fontSize:10, fontFamily:'monospace' }}
+                onClick={() => { const n = [...turretTopOffsetPos]; n[ai] -= 1; setTurretTopOffsetPos(n); }}>--</button>
+              <button style={{ background:'transparent', border:'1px solid #f99', color:'#f99', borderRadius:3, padding:'1px 5px', cursor:'pointer', fontSize:10, fontFamily:'monospace' }}
+                onClick={() => { const n = [...turretTopOffsetPos]; n[ai] -= 0.1; setTurretTopOffsetPos(n); }}>-</button>
+              <input type="number" step="0.1" value={parseFloat(turretTopOffsetPos[ai].toFixed(3))}
+                onChange={e => { const v = parseFloat(e.target.value); if (!isNaN(v)) { const n = [...turretTopOffsetPos]; n[ai] = v; setTurretTopOffsetPos(n); } }}
+                onFocus={() => { if (document.pointerLockElement) document.exitPointerLock(); }}
+                style={{ width:72, background:'#111', border:'1px solid #444', color:'#00c8ff', borderRadius:4, padding:'2px 5px', fontSize:12, fontFamily:'monospace', textAlign:'center', outline:'none' }}
+              />
+              <button style={{ background:'transparent', border:'1px solid #9f9', color:'#9f9', borderRadius:3, padding:'1px 5px', cursor:'pointer', fontSize:10, fontFamily:'monospace' }}
+                onClick={() => { const n = [...turretTopOffsetPos]; n[ai] += 0.1; setTurretTopOffsetPos(n); }}>+</button>
+              <button style={{ background:'transparent', border:'1px solid #5f5', color:'#5f5', borderRadius:3, padding:'1px 5px', cursor:'pointer', fontSize:10, fontFamily:'monospace' }}
+                onClick={() => { const n = [...turretTopOffsetPos]; n[ai] += 1; setTurretTopOffsetPos(n); }}>++</button>
+            </div>
+          ))}
+
+          {/* ROTATION OFFSET */}
+          <div style={{ fontWeight:'bold', color:'#fff', fontSize:13, marginTop:8, marginBottom:4, borderBottom:'1px solid #333', paddingBottom:3 }}>
+            Rotation Offset <span style={{color:'#888',fontWeight:'normal',fontSize:10}}>(radians)</span>
+          </div>
+          {['RX','RY','RZ'].map((axis, ai) => (
+            <div key={axis} style={{ display:'flex', alignItems:'center', gap:4, marginBottom:4 }}>
+              <span style={{ width:32, textAlign:'right', color:'#888', fontSize:11 }}>{axis}</span>
+              <button style={{ background:'transparent', border:'1px solid #f55', color:'#f55', borderRadius:3, padding:'1px 5px', cursor:'pointer', fontSize:10, fontFamily:'monospace' }}
+                onClick={() => { const n = [...turretTopOffsetRot]; n[ai] -= 0.1; setTurretTopOffsetRot(n); }}>--</button>
+              <button style={{ background:'transparent', border:'1px solid #f99', color:'#f99', borderRadius:3, padding:'1px 5px', cursor:'pointer', fontSize:10, fontFamily:'monospace' }}
+                onClick={() => { const n = [...turretTopOffsetRot]; n[ai] -= 0.01; setTurretTopOffsetRot(n); }}>-</button>
+              <input type="number" step="0.01" value={parseFloat(turretTopOffsetRot[ai].toFixed(4))}
+                onChange={e => { const v = parseFloat(e.target.value); if (!isNaN(v)) { const n = [...turretTopOffsetRot]; n[ai] = v; setTurretTopOffsetRot(n); } }}
+                onFocus={() => { if (document.pointerLockElement) document.exitPointerLock(); }}
+                style={{ width:72, background:'#111', border:'1px solid #444', color:'#00c8ff', borderRadius:4, padding:'2px 5px', fontSize:12, fontFamily:'monospace', textAlign:'center', outline:'none' }}
+              />
+              <button style={{ background:'transparent', border:'1px solid #9f9', color:'#9f9', borderRadius:3, padding:'1px 5px', cursor:'pointer', fontSize:10, fontFamily:'monospace' }}
+                onClick={() => { const n = [...turretTopOffsetRot]; n[ai] += 0.01; setTurretTopOffsetRot(n); }}>+</button>
+              <button style={{ background:'transparent', border:'1px solid #5f5', color:'#5f5', borderRadius:3, padding:'1px 5px', cursor:'pointer', fontSize:10, fontFamily:'monospace' }}
+                onClick={() => { const n = [...turretTopOffsetRot]; n[ai] += 0.1; setTurretTopOffsetRot(n); }}>++</button>
+            </div>
+          ))}
+
+          {/* SCALE */}
+          <div style={{ fontWeight:'bold', color:'#fff', fontSize:13, marginTop:8, marginBottom:4, borderBottom:'1px solid #333', paddingBottom:3 }}>
+            Scale
+          </div>
+          <div style={{ display:'flex', alignItems:'center', gap:4, marginBottom:4 }}>
+            <span style={{ width:32, textAlign:'right', color:'#888', fontSize:11 }}>S</span>
+            <button style={{ background:'transparent', border:'1px solid #f55', color:'#f55', borderRadius:3, padding:'1px 5px', cursor:'pointer', fontSize:10, fontFamily:'monospace' }}
+              onClick={() => setTurretTopOffsetScale(s => Math.max(0.01, s - 0.1))}>--</button>
+            <button style={{ background:'transparent', border:'1px solid #f99', color:'#f99', borderRadius:3, padding:'1px 5px', cursor:'pointer', fontSize:10, fontFamily:'monospace' }}
+              onClick={() => setTurretTopOffsetScale(s => Math.max(0.01, s - 0.01))}>-</button>
+            <input type="number" step="0.01" value={parseFloat(turretTopOffsetScale.toFixed(4))}
+              onChange={e => { const v = parseFloat(e.target.value); if (!isNaN(v) && v > 0) setTurretTopOffsetScale(v); }}
+              onFocus={() => { if (document.pointerLockElement) document.exitPointerLock(); }}
+              style={{ width:72, background:'#111', border:'1px solid #444', color:'#00c8ff', borderRadius:4, padding:'2px 5px', fontSize:12, fontFamily:'monospace', textAlign:'center', outline:'none' }}
+            />
+            <button style={{ background:'transparent', border:'1px solid #9f9', color:'#9f9', borderRadius:3, padding:'1px 5px', cursor:'pointer', fontSize:10, fontFamily:'monospace' }}
+              onClick={() => setTurretTopOffsetScale(s => s + 0.01)}>+</button>
+            <button style={{ background:'transparent', border:'1px solid #5f5', color:'#5f5', borderRadius:3, padding:'1px 5px', cursor:'pointer', fontSize:10, fontFamily:'monospace' }}
+              onClick={() => setTurretTopOffsetScale(s => s + 0.1)}>++</button>
+          </div>
+
+          {/* RESET BUTTON */}
+          <div style={{ display:'flex', gap:6, marginTop:8 }}>
+            <button
+              onClick={() => { setTurretTopOffsetPos([0,0,0]); setTurretTopOffsetRot([0,0,0]); setTurretTopOffsetScale(1.0); }}
+              style={{ flex:1, padding:'5px 0', background:'#111', color:'#f55', border:'1px solid #f55', borderRadius:4, cursor:'pointer', fontSize:11, fontFamily:'monospace' }}
+            >Reset All</button>
+          </div>
+
+          {/* VALUES READOUT */}
+          <div style={{ background:'#0a0a0a', border:'1px solid #333', borderRadius:5, padding:5, marginTop:8 }}>
+            <div style={{ color:'#ff0', fontSize:10, lineHeight:'1.4' }}>
+              pos=[{turretTopOffsetPos.map(v=>v.toFixed(2)).join(', ')}]
+              {'\n'}rot=[{turretTopOffsetRot.map(v=>v.toFixed(3)).join(', ')}]
+              {'\n'}scale={turretTopOffsetScale.toFixed(3)}
+            </div>
+          </div>
+        </div>
+      )}
       
       {/* Vehicle HUD and Interaction Prompts */}
       <VehicleHUD 

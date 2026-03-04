@@ -740,7 +740,7 @@ app.get("/me", requireAuth, async (req, res) => {
     }
   }
   db.query(
-    `SELECT id, username, email, sc_balance, public_key, character,
+    `SELECT id, username, email, sc_balance, public_key, selected_character,
             xrp_address, eth_address, xrp_balance, eth_balance, xlm_balance
        FROM users WHERE username = ? LIMIT 1`,
     [username],
@@ -753,7 +753,7 @@ app.get("/me", requireAuth, async (req, res) => {
         username: u.username,
         email: u.email,
         sc_balance: Number(u.sc_balance) || 0,
-        character: u.character || null,
+        character: u.selected_character || null,
         public_key: u.public_key || null,
         xrp_address: u.xrp_address || null,
         eth_address: u.eth_address || null,
@@ -777,7 +777,7 @@ app.patch("/me/character", requireAuth, (req, res) => {
   }
   if (!dbReady) return res.status(503).json({ message: "Database unavailable" });
   db.query(
-    "UPDATE users SET `character` = ? WHERE username = ? LIMIT 1",
+    "UPDATE users SET selected_character = ? WHERE username = ? LIMIT 1",
     [character.slice(0, 50), username],
     (err) => {
       if (err) return res.status(500).json({ message: "DB error" });

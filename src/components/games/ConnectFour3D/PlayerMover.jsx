@@ -346,8 +346,11 @@ export function PlayerMover({ firstPersonMode = false, setFirstPersonMode = null
     }
   }, [weaponSystem.currentWeapon, weaponSystem.ammo, weaponSystem.health, weaponSystem.isAiming, weaponSystem.isReloading, weaponSystem.killFeed, weaponSystem.isDead, weaponSystem.damageFlash, onWeaponSystemUpdate]);
 
-  useFrame((state, dt) => {
+  useFrame((state, rawDt) => {
     if (!enabled || !ref.current) return;
+    // Cap dt at 50ms (20fps floor) — prevents physics blowup on frame drops
+    // that cause position teleporting and visible camera shake
+    const dt = Math.min(rawDt, 0.05);
     
     const camera = state.camera;
     
@@ -2931,7 +2934,7 @@ export function PlayerMover({ firstPersonMode = false, setFirstPersonMode = null
       const curPitch = window.__CF_CAM_V_ANGLE__ || 0;
       const pitchChanged = Math.abs(curPitch - (lastSent.current.pitch || 0)) > 0.02;
       const isFlying = !!isJetpackingRef.current;
-      const minInterval = isFlying ? 16 : 35; // Higher frequency during jetpack for smoother remote view
+      const minInterval = 50; // 20Hz — smooth enough for remote view, avoids GC pressure from WS spam
       if (typeof onPositionChange === 'function' && (((dxs + dzs) > 0.1) || yawChanged || turningNow || liftDiff > 0.5 || jumpChanged || jetChanged || shootChanged || strafeChanged || backChanged || deadChanged || pitchChanged) && (t - lastSent.current.t) > minInterval) {
         lastSent.current = { x: wx, z: wz, yaw: broadcastYaw, t, lift: liftNow, isJumping: !!isJumping, isJetpacking: !!isJetpackingRef.current, isShooting: !!isShootingRef.current, isAiming: aimingNow, isStrafeLeft, isStrafeRight, isWalkingBackward, isDead: !!weaponSystem.isDead, pitch: curPitch };
         onPositionChange(wx, wz, broadcastYaw);

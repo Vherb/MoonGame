@@ -386,8 +386,8 @@ export default function CameraFollower({
 
       // Smooth lerp — fast Y for airborne, smooth XZ
       const isAirborne = !!(msg.isJetpacking || msg.isJumping);
-      const baseAlpha = dt * 3.0;
-      const vertAlpha = isAirborne ? dt * 18.0 : dt * 8.0;
+      const baseAlpha = isAirborne ? dt * 2.0 : dt * 3.0;   // smoother XZ during flight
+      const vertAlpha = isAirborne ? dt * 10.0 : dt * 8.0;   // less aggressive vertical tracking
       let alpha = Math.min(1, baseAlpha);
       let alphaY = Math.min(1, vertAlpha);
       if (settingsChanged.current || isFirstFrame.current || firstPersonMode) {

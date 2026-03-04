@@ -168,42 +168,19 @@ export const RARITY_COLORS = {
 export const EQUIP_SLOTS = ['head', 'back', 'hand', 'feet'];
 
 /* ================================================================
-   localStorage helpers
-   ================================================================ */
-const LS_KEY = 'cf3d_inventory';
-
-function loadFromStorage() {
-  try {
-    const raw = localStorage.getItem(LS_KEY);
-    if (!raw) return null;
-    return JSON.parse(raw);
-  } catch { return null; }
-}
-
-function saveToStorage(state) {
-  try {
-    localStorage.setItem(LS_KEY, JSON.stringify({
-      ownedItems: state.ownedItems,
-      equipped: state.equipped,
-      resources: state.resources,
-    }));
-  } catch {}
-}
-
-/* ================================================================
    Zustand Store
+   (Inventory syncs to/from server DB — no localStorage)
    ================================================================ */
-const saved = loadFromStorage();
 
 export const useInventoryStore = create((set, get) => ({
   // Items the player owns (array of item IDs)
-  ownedItems: saved?.ownedItems || ['jetpack'], // start with jetpack in inventory
+  ownedItems: ['jetpack'], // start with jetpack in inventory
 
   // Currently equipped items: { [slot]: itemId | null }
-  equipped: saved?.equipped || { head: null, back: 'jetpack', hand: null, feet: null },
+  equipped: { head: null, back: 'jetpack', hand: null, feet: null },
 
   // Resource stacks: { [resourceId]: count }
-  resources: saved?.resources || {},
+  resources: {},
 
   // SC balance (synced to/from server DB)
   scBalance: 0,
@@ -222,7 +199,6 @@ export const useInventoryStore = create((set, get) => ({
     set(s => {
       if (s.ownedItems.includes(itemId)) return s;
       const next = { ...s, ownedItems: [...s.ownedItems, itemId] };
-      saveToStorage(next);
       return next;
     });
   },
@@ -239,7 +215,6 @@ export const useInventoryStore = create((set, get) => ({
       for (const slot of EQUIP_SLOTS) {
         if (next.equipped[slot] === itemId) next.equipped[slot] = null;
       }
-      saveToStorage(next);
       return next;
     });
   },
@@ -254,7 +229,6 @@ export const useInventoryStore = create((set, get) => ({
         ...s,
         equipped: { ...s.equipped, [catalog.slot]: itemId },
       };
-      saveToStorage(next);
       return next;
     });
   },
@@ -269,7 +243,6 @@ export const useInventoryStore = create((set, get) => ({
         ...s,
         equipped: { ...s.equipped, [catalog.slot]: null },
       };
-      saveToStorage(next);
       return next;
     });
   },
@@ -313,7 +286,6 @@ export const useInventoryStore = create((set, get) => ({
         ...s,
         resources: { ...s.resources, [resourceId]: (s.resources[resourceId] || 0) + 1 },
       };
-      saveToStorage(next);
       debouncedSaveResources(next.resources);
       return next;
     });
@@ -329,7 +301,6 @@ export const useInventoryStore = create((set, get) => ({
         ...prev,
         resources: { ...prev.resources, [resourceId]: count - 1 },
       };
-      saveToStorage(next);
       return next;
     });
     return true;
@@ -350,7 +321,6 @@ export const useInventoryStore = create((set, get) => ({
         resources: { ...prev.resources, [resourceId]: count - 1 },
         scBalance: prev.scBalance + value,
       };
-      saveToStorage(next);
       return next;
     });
     // Persist to server (send current resources as fallback for first-time sync)
@@ -375,7 +345,6 @@ export const useInventoryStore = create((set, get) => ({
         resources: { ...prev.resources, [resourceId]: 0 },
         scBalance: prev.scBalance + totalValue,
       };
-      saveToStorage(next);
       return next;
     });
     // Persist to server (send current resources as fallback)
@@ -405,7 +374,6 @@ export const useInventoryStore = create((set, get) => ({
         resources: { ...prev.resources, ...cleared },
         scBalance: prev.scBalance + totalValue,
       };
-      saveToStorage(next);
       return next;
     });
     // Persist to server (send current resources as fallback)
@@ -450,7 +418,6 @@ export const useInventoryStore = create((set, get) => ({
         scBalance: scBal,
         _serverLoaded: true,
       });
-      saveToStorage({ ...get() });
       return;
     }
 

@@ -57,7 +57,7 @@ export default function RoomView() {
   const [copied, setCopied] = useState(false);
   const [chatOpen, setChatOpen] = useState(false);
   const [sidebarOpen, setSidebarOpen] = useState(false);
-  const [charMenuOpen, setCharMenuOpen] = useState(true); // opens on room entry
+  const [charMenuOpen, setCharMenuOpen] = useState(false); // false until we know if character is set
 
   // Challenge state
   const [pendingChallenge, setPendingChallenge] = useState(null);
@@ -68,12 +68,30 @@ export default function RoomView() {
   const [myPlayerNumber, setMyPlayerNumber] = useState(null);
 
   const username = localStorage.getItem('username') || 'Player';
-  const [myCharacter, setMyCharacter] = useState(localStorage.getItem('character') || 'astronaut');
+  const [myCharacter, setMyCharacter] = useState(window.__MOON_CHARACTER__ || 'astronaut');
   const chatEndRef = useRef(null);
   const mySocketIdRef = useRef('');
 
   // Keep ref in sync
   useEffect(() => { mySocketIdRef.current = mySocketId; }, [mySocketId]);
+
+  // Fetch character from server on mount (authoritative source)
+  useEffect(() => {
+    const t = localStorage.getItem('token');
+    if (!t) return;
+    fetch('/api/me', { headers: { Authorization: `Bearer ${t}` } })
+      .then(r => r.ok ? r.json() : null)
+      .then(me => {
+        if (me && me.character) {
+          setMyCharacter(me.character);
+          window.__MOON_CHARACTER__ = me.character;
+        } else {
+          // No character set yet — show character select
+          setCharMenuOpen(true);
+        }
+      })
+      .catch(() => {});
+  }, []);
 
   // Initialize multi-player avatar store
   useEffect(() => {
@@ -100,8 +118,8 @@ export default function RoomView() {
         username,
         userId: Number(localStorage.getItem('userId')) || null,
         character: myCharacter,
-        avatar: localStorage.getItem('avatar') || 'rocket',
-        color: localStorage.getItem('playerColor') || '#6366f1',
+        avatar: 'rocket',
+        color: '#6366f1',
       }));
     };
 
@@ -143,26 +161,9 @@ export default function RoomView() {
         }
 
         // Propagate building pieces from room snapshot to building store
-        // If server has pieces, use them. If server is empty but local has pieces,
-        // push local pieces UP to the server (migration from pre-server-sync era).
+        // Server is authoritative — always sync from server data
         if (Array.isArray(data.buildingPieces)) {
-          const localPieces = useBuildingStore.getState().pieces || [];
-          if (data.buildingPieces.length > 0) {
-            // Server has authoritative data — use it
-            useBuildingStore.getState().syncPieces(data.buildingPieces);
-          } else if (localPieces.length > 0) {
-            // Server empty but local has pieces — push local to server
-            const ws = wsRef.current;
-            if (ws && ws.readyState === WebSocket.OPEN) {
-              try {
-                ws.send(JSON.stringify({
-                  type: 'building_sync',
-                  pieces: localPieces,
-                  timestamp: Date.now(),
-                }));
-              } catch {}
-            }
-          }
+          useBuildingStore.getState().syncPieces(data.buildingPieces);
         }
 
         // Seed remote avatar positions so they appear at their actual location, not origin
@@ -411,6 +412,8 @@ export default function RoomView() {
           wsRef.current.close();
         } catch {}
       }
+      // Clear building store on room leave (server is authoritative)
+      useBuildingStore.getState().syncPieces([]);
     };
   }, [connect]);
 
@@ -584,8 +587,16 @@ export default function RoomView() {
   /* ---- Character change handler ---- */
   const handleCharacterChange = useCallback((charId) => {
     setMyCharacter(charId);
-    localStorage.setItem('character', charId);
-    // Notify server so other players see the update
+    // Persist character to server DB
+    const token = localStorage.getItem('token');
+    if (token) {
+      fetch('/api/me/character', {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
+        body: JSON.stringify({ character: charId }),
+      }).catch(() => {});
+    }
+    // Notify room server so other players see the update
     const ws = wsRef.current;
     if (ws && ws.readyState === 1) {
       ws.send(JSON.stringify({ type: 'updateProfile', character: charId }));

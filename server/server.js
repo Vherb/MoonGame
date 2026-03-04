@@ -725,6 +725,7 @@ app.get("/me", requireAuth, async (req, res) => {
         username: u.username,
         email: u.email,
         sc_balance: Number(u.sc_balance) || 0,
+        character: u.character || null,
         public_key: u.public_key || null,
         xrp_address: u.xrp_address || null,
         eth_address: u.eth_address || null,
@@ -739,7 +740,7 @@ app.get("/me", requireAuth, async (req, res) => {
     }
   }
   db.query(
-    `SELECT id, username, email, sc_balance, public_key,
+    `SELECT id, username, email, sc_balance, public_key, character,
             xrp_address, eth_address, xrp_balance, eth_balance, xlm_balance
        FROM users WHERE username = ? LIMIT 1`,
     [username],
@@ -752,6 +753,7 @@ app.get("/me", requireAuth, async (req, res) => {
         username: u.username,
         email: u.email,
         sc_balance: Number(u.sc_balance) || 0,
+        character: u.character || null,
         public_key: u.public_key || null,
         xrp_address: u.xrp_address || null,
         eth_address: u.eth_address || null,
@@ -759,6 +761,27 @@ app.get("/me", requireAuth, async (req, res) => {
         eth_balance: Number(u.eth_balance) || 0,
         xlm_balance: Number(u.xlm_balance) || 0,
       });
+    }
+  );
+});
+
+/* ---- PATCH /me/character — persist selected character to DB ---- */
+app.patch("/me/character", requireAuth, (req, res) => {
+  const { username } = req.user;
+  const { character } = req.body || {};
+  if (!character || typeof character !== 'string') {
+    return res.status(400).json({ message: "Missing character" });
+  }
+  if (DB_OVER_HTTP) {
+    return res.status(501).json({ message: "Not implemented for remote DB" });
+  }
+  if (!dbReady) return res.status(503).json({ message: "Database unavailable" });
+  db.query(
+    "UPDATE users SET `character` = ? WHERE username = ? LIMIT 1",
+    [character.slice(0, 50), username],
+    (err) => {
+      if (err) return res.status(500).json({ message: "DB error" });
+      res.json({ ok: true, character });
     }
   );
 });

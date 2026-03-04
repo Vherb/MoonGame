@@ -4,6 +4,7 @@ import Button from "react-bootstrap/Button";
 import Form from "react-bootstrap/Form";
 import Container from "react-bootstrap/Container";
 import NavBar from "./NavBar";
+import { CharacterSelectMenu } from "./games/ConnectFour3D/CharacterSelectMenu";
 import "bootstrap/dist/css/bootstrap.min.css";
 
 /** Resolve API base
@@ -51,6 +52,8 @@ function Registration({ onAuthed }) {
   const [registrationError, setRegistrationError] = useState(null);
   const [busy, setBusy] = useState(false);
   const [isRegistering, setIsRegistering] = useState(getInitialIsRegistering());
+  const [showCharSelect, setShowCharSelect] = useState(false);
+  const [authData, setAuthData] = useState(null); // stashed after successful registration
 
   const setTab = (reg) => {
     const sp = new URLSearchParams(window.location.search);
@@ -103,8 +106,14 @@ function Registration({ onAuthed }) {
 
   if (onAuthed) onAuthed({ username: data.username, token: data.token, userId: data.userId });
 
-      // go home
-      window.location.replace("/");
+      if (isRegistering) {
+        // Registration: show character select before redirecting
+        setAuthData(data);
+        setShowCharSelect(true);
+      } else {
+        // Login: go home
+        window.location.replace("/");
+      }
 
       // clear PW field only
       setFormData((s) => ({ ...s, password: "" }));
@@ -121,6 +130,35 @@ function Registration({ onAuthed }) {
     setRegistrationError(null);
     setTab(!isRegistering);
   };
+
+  // Character select handler — save to DB, then redirect
+  const handleCharacterSelect = async (charId) => {
+    try {
+      const token = authData?.token || localStorage.getItem('token');
+      if (token) {
+        await timeoutFetch(`${API}/me/character`, {
+          method: 'PATCH',
+          headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
+          body: JSON.stringify({ character: charId }),
+        }, 8000);
+      }
+    } catch {}
+    window.location.replace("/");
+  };
+
+  // If character select is showing, render only that
+  if (showCharSelect) {
+    return (
+      <div style={{ position: 'fixed', inset: 0, zIndex: 9999, background: '#050508' }}>
+        <CharacterSelectMenu
+          isOpen={true}
+          onClose={() => window.location.replace("/")}
+          currentCharacter="astronaut"
+          onSelect={handleCharacterSelect}
+        />
+      </div>
+    );
+  }
 
   return (
     <Container fluid className="p-0">

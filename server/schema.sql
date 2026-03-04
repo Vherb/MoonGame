@@ -16,6 +16,7 @@ CREATE TABLE IF NOT EXISTS `users` (
   `xrp_balance` DECIMAL(32,8) NOT NULL DEFAULT 0,
   `eth_balance` DECIMAL(32,8) NOT NULL DEFAULT 0,
   `xlm_balance` DECIMAL(32,8) NOT NULL DEFAULT 0,
+  `character` VARCHAR(50) DEFAULT NULL,
   PRIMARY KEY (`id`),
   KEY `ix_username` (`username`)npm
 );

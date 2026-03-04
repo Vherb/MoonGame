@@ -56,6 +56,7 @@ import { PlayerMover } from './PlayerMover';
 import CameraFollower from './CameraFollower';
 import { SettingsMenu } from './SettingsMenu';
 import { CharacterSelectMenu } from './CharacterSelectMenu';
+import LoadingScreen, { LoadingGate } from './LoadingScreen';
 import { InventoryMenu } from './InventoryMenu';
 import ResourceSpawner, { ResourceOverlays } from './ResourceNodes';
 import MineableAsteroidSpawner, { MiningOverlays } from './MineableAsteroids';
@@ -131,6 +132,28 @@ function BulletRenderer({ remoteBullets, removeRemoteBullet }) {
 }
 
 function ConnectFour3DView({ board, lastMove, colors, onSelectColumn, flip180 = false, myCharacterId = 'astronaut', oppCharacterId = 'alien', onAvatarMove, myName = 'You', oppName = 'Opponent', remotePlayers, charMenuOpen = false, onCharacterChange, onCharMenuClose }) {
+  // Loading screen state
+  const [assetsReady, setAssetsReady] = useState(false);
+  const [loadProgress, setLoadProgress] = useState(0);
+  const showLoading = !assetsReady && !charMenuOpen;
+  
+  // Track drei useProgress from outside Canvas via polling
+  useEffect(() => {
+    if (assetsReady) return;
+    const poll = setInterval(() => {
+      // useProgress stores state on a module-level store — we read via the selector
+      try {
+        const progress = window.__CF_LOADING_PROGRESS__;
+        if (typeof progress === 'number') setLoadProgress(progress);
+      } catch {}
+    }, 200);
+    return () => clearInterval(poll);
+  }, [assetsReady]);
+
+  const handleAssetsReady = useCallback(() => {
+    setAssetsReady(true);
+  }, []);
+
   // Clean up cached world state on mount to ensure stability across hot reloads
   useEffect(() => {
     try {
@@ -578,14 +601,12 @@ function ConnectFour3DView({ board, lastMove, colors, onSelectColumn, flip180 = 
   
   // Audio Visualizer state
   const [audioVisualizers, setAudioVisualizers] = useState(() => {
-    // Try to load from server first (if available from startGame message)
+    // Load from server snapshot if available (set by roomJoined handler)
     try {
       if (window.__CF_REMOTE_VISUALIZERS__ && Array.isArray(window.__CF_REMOTE_VISUALIZERS__)) {
         return window.__CF_REMOTE_VISUALIZERS__;
       }
-      // Fallback to localStorage
-      const saved = localStorage.getItem('cf3d_audio_visualizers');
-      return saved ? JSON.parse(saved) : [];
+      return [];
     } catch (err) {
       console.warn('Failed to load visualizers:', err);
       return [];
@@ -666,7 +687,7 @@ function ConnectFour3DView({ board, lastMove, colors, onSelectColumn, flip180 = 
   
   // ===== CUBE PLACEMENT SYSTEM =====
   const [placedCubes, setPlacedCubes] = useState(() => {
-    // Try to load from server first (if available from startGame message or roomJoined)
+    // Load from server snapshot if available (set by roomJoined handler)
     try {
       if (window.__CF_REMOTE_CUBES__ && Array.isArray(window.__CF_REMOTE_CUBES__)) {
         return window.__CF_REMOTE_CUBES__.map(cube => ({
@@ -675,19 +696,8 @@ function ConnectFour3DView({ board, lastMove, colors, onSelectColumn, flip180 = 
         }));
       }
     } catch {}
-    // In multiplayer (remotePlayers prop present), start empty — roomJoined will populate
-    // Only use localStorage fallback in solo/offline mode
-    if (remotePlayers) return [];
-    try {
-      const saved = localStorage.getItem('cf3d_placed_cubes');
-      const cubes = saved ? JSON.parse(saved) : [];
-      return cubes.map(cube => ({
-        ...cube,
-        modelType: cube.modelType || 'none'
-      }));
-    } catch {
-      return [];
-    }
+    // In multiplayer, start empty — roomJoined will populate
+    return [];
   });
   const [cubeEditMode, setCubeEditMode] = useState(false); // Enable cube editing
   const [selectedCubeId, setSelectedCubeId] = useState(null); // Currently selected cube
@@ -1043,7 +1053,7 @@ function ConnectFour3DView({ board, lastMove, colors, onSelectColumn, flip180 = 
     }
   }, [placedCubes]);
   
-  // Save cubes to localStorage whenever they change
+  // Save cubes — update collision cache and broadcast (no localStorage)
   const lastCubesJSONRef = React.useRef(null);
   
   React.useEffect(() => {
@@ -1059,7 +1069,6 @@ function ConnectFour3DView({ board, lastMove, colors, onSelectColumn, flip180 = 
     console.log('[COLLISION] Updating cache - cubes changed!');
     
     try {
-      localStorage.setItem('cf3d_placed_cubes', cubesJSON);
       // Broadcast to other windows/tabs
       window.dispatchEvent(new CustomEvent('cf:cubes_update', { 
         detail: { cubes: placedCubes, sourceWindow: window } 
@@ -1235,8 +1244,6 @@ function ConnectFour3DView({ board, lastMove, colors, onSelectColumn, flip180 = 
             setPlacedCubes(remoteCubes);
             lastAppliedRemoteCubesTimestamp.current = remoteCubesTimestamp;
             console.log('[REMOTE CUBES] ✅ Applied to local state');
-            // Save to localStorage so it persists
-            localStorage.setItem('cf3d_placed_cubes', JSON.stringify(remoteCubes));
             // Update module-level cache for real-time collision
             updatePlacedCubesCache(remoteCubes);
           }
@@ -1663,10 +1670,9 @@ function ConnectFour3DView({ board, lastMove, colors, onSelectColumn, flip180 = 
     }
   }, [onAvatarMove]);
   
-  // Save visualizers to localStorage and sync
+  // Save visualizers and sync (no localStorage)
   React.useEffect(() => {
     try {
-      localStorage.setItem('cf3d_audio_visualizers', JSON.stringify(audioVisualizers));
       // Broadcast to other windows/tabs
       window.dispatchEvent(new CustomEvent('cf:visualizers_update', { 
         detail: { visualizers: audioVisualizers } 
@@ -6341,8 +6347,14 @@ function ConnectFour3DView({ board, lastMove, colors, onSelectColumn, flip180 = 
           
           {/* Cinematic post-processing for stunning space visuals */}
           {/* <SpaceEffects /> */}
+          
+          {/* Loading gate — tracks asset loading progress */}
+          <LoadingGate onReady={handleAssetsReady} />
         </Canvas>
       </div>
+      
+      {/* Loading Screen Overlay — shown while assets load */}
+      <LoadingScreen progress={loadProgress} visible={showLoading} />
       
       {/* Combat UI - rendered outside Canvas for 2D overlay */}
       {moveEnabled && weaponSystemData && showSelf && (

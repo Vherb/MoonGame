@@ -89,7 +89,7 @@ export default function LoginForm() {
   localStorage.setItem("username", data.username);
   if (data.userId != null) localStorage.setItem("userId", String(data.userId));
 
-      // 3) load profile for wallet pubkey (server returns `public_key`)
+      // 3) load profile for wallet pubkey + character (server returns `public_key`, `character`)
       let walletPublic = null;
       try {
         const r2 = await timeoutFetch(
@@ -101,6 +101,10 @@ export default function LoginForm() {
           const me = await r2.json().catch(() => ({}));
           walletPublic = me.public_key || me.wallet_public || null;
           if (me.userId != null) localStorage.setItem("userId", String(me.userId));
+          // Store character in sessionStorage so RoomView can read it
+          if (me.character) {
+            window.__MOON_CHARACTER__ = me.character;
+          }
         }
       } catch {}
 

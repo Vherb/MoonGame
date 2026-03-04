@@ -462,40 +462,10 @@ export function getSnapPoints(piece, placedPiece) {
 }
 
 /* ================================================================
-   localStorage persistence
-   ================================================================ */
-const LS_KEY = 'cf3d_building';
-const LS_VERSION_KEY = 'cf3d_building_v';
-const BUILDING_VERSION = `g${GRID_SIZE}_w${WALL_HEIGHT}`; // auto-invalidates on size change
-
-function loadBuilding() {
-  try {
-    // If building dimensions changed, wipe old saves (they'd look wrong)
-    const savedVersion = localStorage.getItem(LS_VERSION_KEY);
-    if (savedVersion && savedVersion !== BUILDING_VERSION) {
-      console.log('[Building] Grid/wall size changed — clearing old saved buildings');
-      localStorage.removeItem(LS_KEY);
-      localStorage.setItem(LS_VERSION_KEY, BUILDING_VERSION);
-      return null;
-    }
-    localStorage.setItem(LS_VERSION_KEY, BUILDING_VERSION);
-    const raw = localStorage.getItem(LS_KEY);
-    if (!raw) return null;
-    return JSON.parse(raw);
-  } catch { return null; }
-}
-
-function saveBuilding(pieces) {
-  try {
-    localStorage.setItem(LS_KEY, JSON.stringify(pieces));
-  } catch {}
-}
-
-/* ================================================================
    Zustand Store
+   (All persistence is server-authoritative via WS building_sync)
    ================================================================ */
-const savedPieces = loadBuilding() || [];
-let nextId = savedPieces.reduce((max, p) => Math.max(max, p.id || 0), 0) + 1;
+let nextId = 1;
 
 export const useBuildingStore = create((set, get) => ({
   // ── Build mode state ──
@@ -512,8 +482,8 @@ export const useBuildingStore = create((set, get) => ({
   customModelPath: null,      // path selected for modelCustom placement
   selectedPropId: null,       // which placed model prop is selected for transform editing
 
-  // ── Placed pieces ──
-  pieces: savedPieces,        // array of { id, type, x, y, z, rotation, health, ownerId }
+  // ── Placed pieces ── (populated from server on room join)
+  pieces: [],                 // array of { id, type, x, y, z, rotation, health, ownerId }
 
   // ── Door states ── (maps pieceId → boolean open)
   doorStates: {},             // { [pieceId]: true/false }
@@ -543,7 +513,6 @@ export const useBuildingStore = create((set, get) => ({
         if (transform.modelScale) patched.modelScale = [...transform.modelScale];
         return patched;
       });
-      saveBuilding(updated);
       return { pieces: updated };
     });
   },
@@ -646,7 +615,6 @@ export const useBuildingStore = create((set, get) => ({
 
     set(prev => {
       const updated = [...prev.pieces, newPiece];
-      saveBuilding(updated);
       // Auto-select model props so controller transforms work immediately
       // (skip turretTop — it auto-snaps and shouldn't open the gizmo)
       if (pieceDef.isModel && !pieceDef.isTurretTop) {
@@ -692,7 +660,6 @@ export const useBuildingStore = create((set, get) => ({
 
     set(prev => {
       const updated = prev.pieces.filter(p => !cascadeIds.has(p.id));
-      saveBuilding(updated);
       return { pieces: updated };
     });
   },
@@ -706,7 +673,6 @@ export const useBuildingStore = create((set, get) => ({
         if (newHealth <= 0) return null; // destroyed
         return { ...p, health: newHealth };
       }).filter(Boolean);
-      saveBuilding(updated);
       return { pieces: updated };
     });
   },
@@ -717,7 +683,6 @@ export const useBuildingStore = create((set, get) => ({
     const maxId = pieces.reduce((max, p) => Math.max(max, p.id || 0), 0);
     if (maxId >= nextId) nextId = maxId + 1;
     set({ pieces });
-    saveBuilding(pieces);
   },
 
   // Add a single piece from remote player
@@ -726,7 +691,6 @@ export const useBuildingStore = create((set, get) => ({
     set(prev => {
       if (prev.pieces.find(p => p.id === piece.id)) return prev; // already exists
       const updated = [...prev.pieces, piece];
-      saveBuilding(updated);
       return { pieces: updated };
     });
   },
@@ -735,7 +699,6 @@ export const useBuildingStore = create((set, get) => ({
   removeRemotePiece: (pieceId) => {
     set(prev => {
       const updated = prev.pieces.filter(p => p.id !== pieceId);
-      saveBuilding(updated);
       return { pieces: updated };
     });
   },

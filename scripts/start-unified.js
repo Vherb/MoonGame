@@ -20,8 +20,8 @@ process.env.MYSQL_SSL = process.env.MYSQL_SSL || '0';
 process.env.MYSQL_SSL_REJECT_UNAUTH = process.env.MYSQL_SSL_REJECT_UNAUTH || '0';
 // Ensure DB calls use direct MySQL locally, not HTTP bridge
 process.env.DB_OVER_HTTP = process.env.DB_OVER_HTTP || '0';
-// Force the unified API to bind to 3002 locally so CRA can use 3000 without conflict
-process.env.PORT = '3002';
+// Default API port: 3002 for local dev, overridable via .env for production (e.g. 6000)
+process.env.PORT = process.env.PORT || '3002';
 process.env.API_PORT = process.env.API_PORT || '3002';
 // For local development, allow the server to start even if DB is unreachable
 process.env.DB_OPTIONAL = process.env.DB_OPTIONAL || '1';

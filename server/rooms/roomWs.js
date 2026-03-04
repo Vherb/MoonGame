@@ -696,11 +696,11 @@ function attachUnified(server, wsPath = '/ws/room') {
  * REST endpoints for room info (optional — can be mounted on the Express app).
  */
 function attachRest(app) {
-  app.get('/api/rooms', (_req, res) => {
+  app.get('/rooms', (_req, res) => {
     res.json({ rooms: mgr.listPublicRooms() });
   });
 
-  app.get('/api/rooms/:code', (req, res) => {
+  app.get('/rooms/:code', (req, res) => {
     const room = mgr.getRoom(req.params.code);
     if (!room) return res.status(404).json({ error: 'Room not found' });
     res.json({
@@ -714,7 +714,7 @@ function attachRest(app) {
     });
   });
 
-  app.get('/api/rooms-stats', (_req, res) => {
+  app.get('/rooms-stats', (_req, res) => {
     res.json(mgr.stats());
   });
 }

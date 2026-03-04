@@ -57,14 +57,12 @@ const getWsUrl = () => {
     let lsHost=''; try{ lsHost=(localStorage.getItem('serverHost')||'').trim(); }catch{}
     const host = envHost || winHost || lsHost || ((window.location && window.location.hostname) || 'localhost');
     const proto = (window.location && window.location.protocol === 'https:') ? 'wss' : 'ws';
-    if (process.env.REACT_APP_UNIFIED_WS === '1'){
-      // In unified mode, connect to the API host:port (defaults to 3002) and not the client port (3000)
-      const httpProto = (window.location && window.location.protocol) || 'http:';
-      const apiBase = (process.env.REACT_APP_API_BASE && process.env.REACT_APP_API_BASE.trim()) || `${httpProto}//${host}:3002`;
-      let u; try { u = new URL(apiBase); } catch { u = { host: `${host}:3002` }; }
-      return `${proto}://${u.host}/ws/c4`;
-    }
-    return `${proto}://${host}:3014`;
+    const port = (window.location && window.location.port) || '';
+    // Production: standard ports, no explicit port needed
+    if (!port || port === '443' || port === '80') return `${proto}://${host}/ws/c4`;
+    // Dev: CRA on 3000 talks to backend on 3002
+    const targetPort = port === '3000' ? '3002' : port;
+    return `${proto}://${host}:${targetPort}/ws/c4`;
   }catch{
     return 'ws://localhost:3014';
   }
@@ -72,12 +70,16 @@ const getWsUrl = () => {
 
 /* ======= SC wallet helpers ======= */
 const API = (()=>{
-  const { protocol, hostname } = window.location;
+  const envBase = (process.env.REACT_APP_API_BASE || '').trim();
+  if (envBase) return envBase;
+  const { protocol, hostname, port } = window.location;
   const envHost=(process.env.REACT_APP_SERVER_HOST||'').trim();
   const winHost=(window.SERVER_HOST?String(window.SERVER_HOST).trim():'');
   let lsHost=''; try{ lsHost=(localStorage.getItem('serverHost')||'').trim(); }catch{}
   const host=envHost||winHost||lsHost||hostname;
-  return process.env.REACT_APP_API_BASE || `${protocol}//${host}:3002`;
+  if (!port || port === '443' || port === '80') return '/api';
+  const targetPort = port === '3000' ? '3002' : port;
+  return `${protocol}//${host}:${targetPort}`;
 })();
 
 function authFetch(path, options = {}) {

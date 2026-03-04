@@ -29,15 +29,14 @@ function getRoomWsUrl() {
     try { lsHost = (localStorage.getItem('serverHost') || '').trim(); } catch {}
     const host = envHost || winHost || lsHost || ((window.location && window.location.hostname) || 'localhost');
     const proto = (window.location && window.location.protocol === 'https:') ? 'wss' : 'ws';
+    const port = (window.location && window.location.port) || '';
 
-    if (process.env.REACT_APP_UNIFIED_WS === '1') {
-      const httpProto = (window.location && window.location.protocol) || 'http:';
-      const apiBase = (process.env.REACT_APP_API_BASE && process.env.REACT_APP_API_BASE.trim()) || `${httpProto}//${host}:3002`;
-      let u;
-      try { u = new URL(apiBase); } catch { u = { host: `${host}:3002` }; }
-      return `${proto}://${u.host}/ws/room`;
-    }
-    return `${proto}://${host}:3002/ws/room`;
+    // Production: standard ports, no explicit port needed
+    if (!port || port === '443' || port === '80') return `${proto}://${host}/ws/room`;
+
+    // Dev: CRA on 3000 talks to backend on 3002
+    const targetPort = port === '3000' ? '3002' : port;
+    return `${proto}://${host}:${targetPort}/ws/room`;
   } catch {
     return 'ws://localhost:3002/ws/room';
   }
@@ -45,13 +44,17 @@ function getRoomWsUrl() {
 
 function getApiBase() {
   try {
+    const envBase = (process.env.REACT_APP_API_BASE || '').trim();
+    if (envBase) return envBase;
     const envHost = (process.env.REACT_APP_SERVER_HOST || '').trim();
     const winHost = (window.SERVER_HOST ? String(window.SERVER_HOST).trim() : '');
     let lsHost = '';
     try { lsHost = (localStorage.getItem('serverHost') || '').trim(); } catch {}
     const host = envHost || winHost || lsHost || ((window.location && window.location.hostname) || 'localhost');
-    const httpProto = (window.location && window.location.protocol) || 'http:';
-    return (process.env.REACT_APP_API_BASE && process.env.REACT_APP_API_BASE.trim()) || `${httpProto}//${host}:3002`;
+    const { protocol, port } = window.location || {};
+    if (!port || port === '443' || port === '80') return '/api';
+    const targetPort = port === '3000' ? '3002' : port;
+    return `${protocol}//${host}:${targetPort}`;
   } catch {
     return 'http://localhost:3002';
   }
@@ -71,7 +74,7 @@ export default function RoomHub() {
   const fetchRooms = useCallback(async () => {
     try {
       setLoading(true);
-      const res = await fetch(`${getApiBase()}/api/rooms`);
+      const res = await fetch(`${getApiBase()}/rooms`);
       const json = await res.json();
       setRooms(json.rooms || []);
       setError('');

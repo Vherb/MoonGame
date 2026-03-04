@@ -17,13 +17,12 @@ function getRoomWsUrl() {
     try { lsHost = (localStorage.getItem('serverHost') || '').trim(); } catch {}
     const host = envHost || winHost || lsHost || ((window.location && window.location.hostname) || 'localhost');
     const proto = (window.location && window.location.protocol === 'https:') ? 'wss' : 'ws';
-    if (process.env.REACT_APP_UNIFIED_WS === '1') {
-      const httpProto = (window.location && window.location.protocol) || 'http:';
-      const apiBase = (process.env.REACT_APP_API_BASE && process.env.REACT_APP_API_BASE.trim()) || `${httpProto}//${host}:3002`;
-      let u; try { u = new URL(apiBase); } catch { u = { host: `${host}:3002` }; }
-      return `${proto}://${u.host}/ws/room`;
-    }
-    return `${proto}://${host}:3002/ws/room`;
+    const port = (window.location && window.location.port) || '';
+    // Production: standard ports, no explicit port needed
+    if (!port || port === '443' || port === '80') return `${proto}://${host}/ws/room`;
+    // Dev: CRA on 3000 talks to backend on 3002
+    const targetPort = port === '3000' ? '3002' : port;
+    return `${proto}://${host}:${targetPort}/ws/room`;
   } catch { return 'ws://localhost:3002/ws/room'; }
 }
 

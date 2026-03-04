@@ -10,8 +10,14 @@ import { resolveServerHost, httpProto } from '../../../config';
 function getApiBase() {
   // In dev, use relative URLs so CRA proxy handles routing (no CORS issues).
   // In prod, build the full URL.
-  if (typeof window !== 'undefined' && window.location.port === '3000') {
-    return ''; // relative — goes through CRA proxy to :3002
+  if (typeof window !== 'undefined') {
+    const port = window.location.port || '';
+    if (port === '3000') return ''; // relative — goes through CRA proxy to :3002
+    if (!port || port === '443' || port === '80') return '/api'; // production
+    const host = resolveServerHost();
+    const proto = httpProto();
+    const targetPort = port === '3000' ? '3002' : port;
+    return `${proto}://${host}:${targetPort}`;
   }
   const host = resolveServerHost();
   const proto = httpProto();

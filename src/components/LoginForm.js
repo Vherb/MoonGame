@@ -11,14 +11,17 @@ const LS_PUBLIC = "roc_public";    // cached wallet pubkey
 // Resolve API base without any external helper files.
 // Priority: REACT_APP_API_BASE → same host/IP on port 3002 → localhost:3002
 function resolveApiBase() {
-  if (process.env.REACT_APP_API_BASE) return process.env.REACT_APP_API_BASE;
+  const envBase = (process.env.REACT_APP_API_BASE || '').trim();
+  if (envBase) return envBase;
   if (typeof window !== "undefined") {
-    const { protocol, hostname } = window.location; // supports 192.168.x.x
+    const { protocol, hostname, port } = window.location;
     const envHost = (process.env.REACT_APP_SERVER_HOST || "").trim();
     const winHost = (window.SERVER_HOST ? String(window.SERVER_HOST).trim() : "");
     let lsHost = ""; try { lsHost = (localStorage.getItem("serverHost") || "").trim(); } catch {}
     const host = envHost || winHost || lsHost || hostname;
-    return `${protocol}//${host}:3002`;
+    if (!port || port === '443' || port === '80') return '/api';
+    const targetPort = port === '3000' ? '3002' : port;
+    return `${protocol}//${host}:${targetPort}`;
   }
   return "http://localhost:3002";
 }

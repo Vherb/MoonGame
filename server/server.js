@@ -112,6 +112,16 @@ if (ENABLE_CORS) {
   app.options("*", cors());
 }
 
+// In production behind nginx, the frontend prefixes all calls with /api/.
+// Strip /api/ so every route resolves at its root-level path.
+// Dev (CRA proxy) sends directly to the root, so this is a no-op there.
+app.use((req, _res, next) => {
+  if (req.url.startsWith('/api/')) {
+    req.url = req.url.replace(/^\/api/, '');
+  }
+  next();
+});
+
 // Health check
 app.get("/ping", (_req, res) => res.json({ ok: true }));
 
@@ -149,7 +159,7 @@ const upload = multer({
 });
 
 // Upload endpoint
-app.post('/api/upload-sound', upload.single('sound'), (req, res) => {
+app.post('/upload-sound', upload.single('sound'), (req, res) => {
   try {
     if (!req.file) {
       return res.status(400).json({ success: false, error: 'No file uploaded' });
@@ -166,7 +176,7 @@ app.post('/api/upload-sound', upload.single('sound'), (req, res) => {
 });
 
 // Get list of available sound files
-app.get('/api/sounds', (req, res) => {
+app.get('/sounds', (req, res) => {
   try {
     const soundsPath = path.join(__dirname, '..', 'public', 'sounds', 'Spacial Aduio Sounds');
     if (!fs.existsSync(soundsPath)) {
@@ -221,7 +231,7 @@ const modelUpload = multer({
 });
 
 // Model upload endpoint - supports multiple files (folder upload)
-app.post('/api/upload-model', modelUpload.array('models', 50), (req, res) => {
+app.post('/upload-model', modelUpload.array('models', 50), (req, res) => {
   try {
     if (!req.files || req.files.length === 0) {
       return res.status(400).json({ success: false, error: 'No files uploaded' });
@@ -278,7 +288,7 @@ app.post('/api/upload-model', modelUpload.array('models', 50), (req, res) => {
 });
 
 // Get list of custom models
-app.get('/api/models', (req, res) => {
+app.get('/models', (req, res) => {
   try {
     const modelsPath = path.join(__dirname, '..', 'public', 'models', 'props');
     if (!fs.existsSync(modelsPath)) {

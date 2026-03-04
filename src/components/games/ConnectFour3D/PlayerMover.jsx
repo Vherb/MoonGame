@@ -71,6 +71,8 @@ export function PlayerMover({ firstPersonMode = false, setFirstPersonMode = null
   const sphereQRef = useRef(new THREE.Quaternion());         // cached sphere orientation quaternion
   const sphereJumpYRef = useRef(0);                           // synchronous jumpY for sphere mode (avoids 1-frame React state lag)
   const spherePlatformLiftRef = useRef(0);                    // synchronous platformLift for sphere mode
+  const flatJumpYRef = useRef(0);                             // synchronous jumpY for flat mode (avoids 1-frame React state lag)
+  const flatPlatformLiftRef = useRef(0);                      // synchronous platformLift for flat mode
   const _Y_AXIS = useMemo(() => new THREE.Vector3(0, 1, 0), []);
   const _tmpV3a = useMemo(() => new THREE.Vector3(), []);
   const _tmpV3b = useMemo(() => new THREE.Vector3(), []);
@@ -351,6 +353,10 @@ export function PlayerMover({ firstPersonMode = false, setFirstPersonMode = null
     // Cap dt at 50ms (20fps floor) — prevents physics blowup on frame drops
     // that cause position teleporting and visible camera shake
     const dt = Math.min(rawDt, 0.05);
+    
+    // Default flat-mode refs to React state (overridden with fresh values in jump block)
+    flatJumpYRef.current = jumpY;
+    flatPlatformLiftRef.current = platformLift;
     
     const camera = state.camera;
     
@@ -2745,22 +2751,27 @@ export function PlayerMover({ firstPersonMode = false, setFirstPersonMode = null
       const minLocalY = terrainGy - committedLift;   // local-space floor
 
       if (y < minLocalY) {
-        // Avatar is below terrain → force an immediate landing snap
-        setPlatformLift(terrainGy); committedLift = terrainGy;
-        y  = 0;
-        vy = 0;
-        jumpVyRef.current = 0;
-        setIsJumping(false); setIsFalling(false);
         if (isJetpackingRef.current) {
-          isJetpackingRef.current = false;
-          jetpackVxRef.current = 0;
-          jetpackVzRef.current = 0;
-          if (jetpackLandTimerRef.current) clearTimeout(jetpackLandTimerRef.current);
-          setIsJetpacking(false);
+          // While jetpacking, adjust the baseline to the terrain height
+          // but keep flying — don't deactivate jetpack or kill velocity.
+          // This prevents the oscillation when flying over hills.
+          setPlatformLift(terrainGy); committedLift = terrainGy;
+          y = 0;
+          // Preserve vy — player continues ascending/descending smoothly
+        } else {
+          // Not jetpacking: normal landing snap
+          setPlatformLift(terrainGy); committedLift = terrainGy;
+          y  = 0;
+          vy = 0;
+          jumpVyRef.current = 0;
+          setIsJumping(false); setIsFalling(false);
         }
       }
       // ──────────────────────────────────────────────────────────────────
 
+      // Sync refs for camera (avoids 1-frame React state lag)
+      flatJumpYRef.current = y;
+      flatPlatformLiftRef.current = committedLift;
       if (Math.abs(y - jumpY) > 0.00001) setJumpY(y);
     }
     // If grounded (not jumping) and not on table, snap to stair ground height (skip while jetpacking)
@@ -2912,7 +2923,9 @@ export function PlayerMover({ firstPersonMode = false, setFirstPersonMode = null
     wz
   ] : null;
   try {
-    window.__CF_LOCAL_AVATAR__ = { x: wx, z: wz, yaw: localYaw, firstPersonMode: !!firstPersonMode, isRunning: runningNow, isWalking: !!(isWalking || isWalkingBackward || isStrafeLeft || isStrafeRight), isJumping: !!isJumping, isJetpacking: !!isJetpackingRef.current, jetpackFuel: jetpackFuelRef.current, isBoost: !!jetpackBoostActive, lift: (platformLift + jumpY), jetpackTiltX: jetpackTiltXRef.current, jetpackTiltZ: jetpackTiltZRef.current, isShooting: !!isShootingRef.current, isAiming: aimingNow, isScoping: !!weaponSystem.isAiming, isWalkingBackward, isStrafeLeft, isStrafeRight, isDead: !!weaponSystem.isDead, pitch: window.__CF_CAM_V_ANGLE__ || 0, sphereMode: _sphereOn ? 1 : 0, sphereBlend: _sphereBlend, sphereUp: _sphereUpArr, spherePlayerPos: _spherePlayerPos, sphereGrounded: _sphereOn && _sphereJY < 3 };
+    // Use synchronous refs for lift to avoid 1-frame React state lag that causes camera-mesh jitter
+    const _flatLift = _sphereOn ? (platformLift + jumpY) : (flatPlatformLiftRef.current + flatJumpYRef.current);
+    window.__CF_LOCAL_AVATAR__ = { x: wx, z: wz, yaw: localYaw, firstPersonMode: !!firstPersonMode, isRunning: runningNow, isWalking: !!(isWalking || isWalkingBackward || isStrafeLeft || isStrafeRight), isJumping: !!isJumping, isJetpacking: !!isJetpackingRef.current, jetpackFuel: jetpackFuelRef.current, isBoost: !!jetpackBoostActive, lift: _flatLift, jetpackTiltX: jetpackTiltXRef.current, jetpackTiltZ: jetpackTiltZRef.current, isShooting: !!isShootingRef.current, isAiming: aimingNow, isScoping: !!weaponSystem.isAiming, isWalkingBackward, isStrafeLeft, isStrafeRight, isDead: !!weaponSystem.isDead, pitch: window.__CF_CAM_V_ANGLE__ || 0, sphereMode: _sphereOn ? 1 : 0, sphereBlend: _sphereBlend, sphereUp: _sphereUpArr, spherePlayerPos: _spherePlayerPos, sphereGrounded: _sphereOn && _sphereJY < 3 };
     window.__CF_COLLISION_FWD__ = COLLISION_FWD_OFFSET;
   } catch {}
       const t = performance.now();

@@ -1,16 +1,22 @@
 // LoadingScreen.jsx — HTML overlay that gates gameplay until assets are loaded.
 // Uses drei's useProgress to track Three.js asset loading progress.
+// Also pre-compiles all shaders after loading to eliminate first-move jank.
 
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useRef, useState } from 'react';
 import { useProgress } from '@react-three/drei';
+import { useThree } from '@react-three/fiber';
 
 /**
  * LoadingGate — renders inside the Canvas to track Three.js asset loading.
- * Calls onReady() once loading is complete.
+ * Waits for assets to stay at 100% for a sustained period, then pre-compiles
+ * all shaders via gl.compile() before calling onReady().
  */
 export function LoadingGate({ onReady }) {
   const { active, progress } = useProgress();
+  const { gl, scene, camera } = useThree();
   const [done, setDone] = useState(false);
+  const stableTimer = useRef(null);
+  const readyFired = useRef(false);
 
   // Publish progress to window global so the HTML overlay can read it
   useEffect(() => {
@@ -18,15 +24,49 @@ export function LoadingGate({ onReady }) {
   }, [progress]);
 
   useEffect(() => {
-    if (!active && progress >= 100 && !done) {
-      // Small delay so the last frame renders before we dismiss
-      const t = setTimeout(() => {
-        setDone(true);
-        onReady();
-      }, 400);
-      return () => clearTimeout(t);
+    if (readyFired.current) return;
+
+    const isComplete = !active && progress >= 100;
+
+    if (isComplete) {
+      // Require 100% to hold for 2 seconds — assets sometimes hit 100%
+      // briefly then start loading more (nested Suspense boundaries).
+      if (!stableTimer.current) {
+        stableTimer.current = setTimeout(() => {
+          if (readyFired.current) return;
+          readyFired.current = true;
+
+          // Pre-compile ALL shaders in the scene graph so the GPU doesn't
+          // stutter when new materials come into view during gameplay.
+          try {
+            gl.compile(scene, camera);
+          } catch (e) {
+            console.warn('Shader pre-compilation skipped:', e);
+          }
+
+          setDone(true);
+          onReady();
+        }, 2000);
+      }
+    } else {
+      // Progress dropped back below 100 — reset the timer
+      if (stableTimer.current) {
+        clearTimeout(stableTimer.current);
+        stableTimer.current = null;
+      }
     }
-  }, [active, progress, done, onReady]);
+
+    return () => {
+      // Cleanup only on unmount
+    };
+  }, [active, progress, gl, scene, camera, onReady]);
+
+  // Cleanup timer on unmount
+  useEffect(() => {
+    return () => {
+      if (stableTimer.current) clearTimeout(stableTimer.current);
+    };
+  }, []);
 
   return null; // renders nothing in the 3D scene
 }

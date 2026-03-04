@@ -2728,16 +2728,18 @@ export function PlayerMover({ firstPersonMode = false, setFirstPersonMode = null
         const SNAP_BAND = isJetpackFall ? 4.0 : (isFallingFast ? 0.5 : Math.max(0.1, 0.25 * STAIR_RISE));
         
         if (curAbs <= targetAbs + SNAP_BAND) {
-          // Simple landing: just snap to the ground height and stop jumping
-          // This matches the smooth falling behavior when running off a ledge
-          setPlatformLift(gy); committedLift = gy;
-          y = 0; 
-          vy = 0; 
-          setIsJumping(false); setIsFalling(false);
           if (isJetpackingRef.current) {
-            isJetpackingRef.current = false; jetpackVxRef.current = 0; jetpackVzRef.current = 0;
-            if (jetpackLandTimerRef.current) clearTimeout(jetpackLandTimerRef.current);
-            setIsJetpacking(false);
+            // Active jetpacking — redistribute height like terrain clamp instead of landing.
+            // This prevents the oscillation cycle: land → re-takeoff → land → ...
+            setPlatformLift(gy); committedLift = gy;
+            y = Math.max(0, curAbs - localGroundY - gy); // preserve absolute height
+            // Preserve vy — player continues moving smoothly
+          } else {
+            // Normal landing: snap to the ground height and stop jumping
+            setPlatformLift(gy); committedLift = gy;
+            y = 0; 
+            vy = 0; 
+            setIsJumping(false); setIsFalling(false);
           }
         }
       }
@@ -2973,7 +2975,7 @@ export function PlayerMover({ firstPersonMode = false, setFirstPersonMode = null
   const childWithMotion = useMemo(() => {
     const arr = React.Children.toArray(children);
     if (arr.length > 0 && React.isValidElement(arr[0])) {
-      try { arr[0] = React.cloneElement(arr[0], { isWalking, isWalkingBackward, isRunning, isTurningLeft, isTurningRight, isJumping, isJetpacking, isFalling, isShooting: !!isShootingRef.current, isAiming: !!(firstPersonMode || weaponSystem.isAiming || window.__CF_FORCE_AIM__), isStrafeLeft, isStrafeRight, isDead: !!weaponSystem.isDead, jetpackTiltX: jetpackTiltXRef.current, jetpackTiltZ: jetpackTiltZRef.current, extraLiftY: sphereModeRef.current >= 0.5 ? spherePlatformLiftRef.current : (platformLift + jumpY), pitch: window.__CF_CAM_V_ANGLE__ || 0 }); } catch {}
+      try { arr[0] = React.cloneElement(arr[0], { isWalking, isWalkingBackward, isRunning, isTurningLeft, isTurningRight, isJumping, isJetpacking, isFalling, isShooting: !!isShootingRef.current, isAiming: !!(firstPersonMode || weaponSystem.isAiming || window.__CF_FORCE_AIM__), isStrafeLeft, isStrafeRight, isDead: !!weaponSystem.isDead, jetpackTiltX: jetpackTiltXRef.current, jetpackTiltZ: jetpackTiltZRef.current, extraLiftY: sphereModeRef.current >= 0.5 ? spherePlatformLiftRef.current : (flatPlatformLiftRef.current + flatJumpYRef.current), pitch: window.__CF_CAM_V_ANGLE__ || 0 }); } catch {}
     }
     // Also adjust the Billboard / name label (idx=1) Y position to follow character lift
     if (arr.length > 1 && React.isValidElement(arr[1])) {
@@ -2981,7 +2983,7 @@ export function PlayerMover({ firstPersonMode = false, setFirstPersonMode = null
         const pos = arr[1].props?.position;
         if (pos) {
           const [px, py, pz] = pos;
-          arr[1] = React.cloneElement(arr[1], { position: [px, py + platformLift + jumpY, pz] });
+          arr[1] = React.cloneElement(arr[1], { position: [px, py + flatPlatformLiftRef.current + flatJumpYRef.current, pz] });
         }
       } catch {}
     }

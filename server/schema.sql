@@ -1,6 +1,6 @@
 -- Minimal schema for wallet/auth features
-CREATE DATABASE IF NOT EXISTS `NeonGames`;
-USE `NeonGames`;
+CREATE DATABASE IF NOT EXISTS `moongame`;
+USE `moongame`;
 
 CREATE TABLE IF NOT EXISTS `users` (
   `id` INT NOT NULL AUTO_INCREMENT,

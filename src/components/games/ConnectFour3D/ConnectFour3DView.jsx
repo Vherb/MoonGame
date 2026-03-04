@@ -724,7 +724,7 @@ function ConnectFour3DView({ board, lastMove, colors, onSelectColumn, flip180 = 
   // Check server status periodically
   useEffect(() => {
     const checkServer = () => {
-      fetch('http://localhost:3002/api/models')
+      fetch('/api/models')
         .then(() => setServerStatus('online'))
         .catch(() => setServerStatus('offline'));
     };

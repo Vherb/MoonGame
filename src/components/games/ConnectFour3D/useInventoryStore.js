@@ -174,10 +174,10 @@ export const EQUIP_SLOTS = ['head', 'back', 'hand', 'feet'];
 
 export const useInventoryStore = create((set, get) => ({
   // Items the player owns (array of item IDs)
-  ownedItems: ['jetpack'], // start with jetpack in inventory
+  ownedItems: [], // empty — equipment must be found in-world
 
   // Currently equipped items: { [slot]: itemId | null }
-  equipped: { head: null, back: 'jetpack', hand: null, feet: null },
+  equipped: { head: null, back: null, hand: null, feet: null },
 
   // Resource stacks: { [resourceId]: count }
   resources: {},

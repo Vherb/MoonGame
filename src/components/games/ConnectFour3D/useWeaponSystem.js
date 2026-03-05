@@ -1,5 +1,6 @@
 import { useState, useRef, useCallback, useEffect } from 'react';
 import { WEAPONS } from './WeaponSystem';
+import { useInventoryStore } from './useInventoryStore';
 
 // Module-level health tracking for remote players (avoids re-render churn)
 const _playerHealthMap = {};
@@ -353,6 +354,19 @@ export function useWeaponSystem({
         // Player died — enter death state
         setIsDead(true);
         addKillFeedEntry('You died!');
+
+        // Drop equipment (jetpack) at death location
+        const inv = useInventoryStore.getState();
+        if (inv.hasEffect('enableJetpack')) {
+          inv.removeItem('jetpack');
+          const avatar = window.__CF_LOCAL_AVATAR__;
+          if (avatar && Number.isFinite(avatar.x)) {
+            window.dispatchEvent(new CustomEvent('equipment_dropped', {
+              detail: { itemId: 'jetpack', x: avatar.x, z: avatar.z },
+            }));
+          }
+        }
+
         // Auto-respawn after 3 seconds
         respawnTimerRef.current = setTimeout(() => {
           setHealth(100);

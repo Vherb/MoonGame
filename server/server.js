@@ -1113,6 +1113,32 @@ app.post("/sc/adjust", requireAuth, (req, res) => {
   });
 });
 
+/* -------------------- Equipment (owned items — jetpack etc.) -------------------- */
+
+// Load owned equipment for the logged-in user
+app.get("/equipment", requireAuth, (req, res) => {
+  const { username } = req.user;
+  db.query("SELECT owned_items FROM users WHERE username = ? LIMIT 1", [username], (e, rows) => {
+    if (e) return res.status(500).json({ message: "DB error" });
+    if (!rows.length) return res.status(404).json({ message: "User not found" });
+    let items = [];
+    try { items = JSON.parse(rows[0].owned_items) || []; } catch {}
+    res.json({ owned_items: items });
+  });
+});
+
+// Save owned equipment
+app.post("/equipment/save", requireAuth, (req, res) => {
+  const { username } = req.user;
+  const { owned_items } = req.body || {};
+  if (!Array.isArray(owned_items)) return res.status(400).json({ message: "Bad owned_items" });
+  const json = JSON.stringify(owned_items);
+  db.query("UPDATE users SET owned_items = ? WHERE username = ? LIMIT 1", [json, username], (e) => {
+    if (e) return res.status(500).json({ message: "DB error" });
+    res.json({ ok: true });
+  });
+});
+
 /* -------------------- Resources (Moon game inventory) -------------------- */
 
 // Load resources for the logged-in user

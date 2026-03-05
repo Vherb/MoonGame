@@ -17,6 +17,8 @@ CREATE TABLE IF NOT EXISTS `users` (
   `eth_balance` DECIMAL(32,8) NOT NULL DEFAULT 0,
   `xlm_balance` DECIMAL(32,8) NOT NULL DEFAULT 0,
   `selected_character` VARCHAR(50) DEFAULT NULL,
+  `owned_items` TEXT DEFAULT NULL,
+  `resources` TEXT DEFAULT NULL,
   PRIMARY KEY (`id`),
   KEY `ix_username` (`username`)npm
 );

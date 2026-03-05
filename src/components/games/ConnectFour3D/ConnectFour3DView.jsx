@@ -62,6 +62,8 @@ import ResourceSpawner, { ResourceOverlays } from './ResourceNodes';
 import MineableAsteroidSpawner, { MiningOverlays } from './MineableAsteroids';
 import EnemyWaveManager, { WaveOverlays } from './EnemyWaveSystem';
 import BuildingSystem, { BuildingOverlays } from './BuildingSystem';
+import EquipmentPickups, { EquipmentPickupOverlays } from './EquipmentPickups';
+import GamepadHUD from './GamepadHUD';
 
 // Extend Three.js to make postprocessing classes available in JSX
 extend({ EffectComposer, RenderPass, UnrealBloomPass });
@@ -5871,7 +5873,9 @@ function ConnectFour3DView({ board, lastMove, colors, onSelectColumn, flip180 = 
             <LunarTerrain radius={TERRAIN_RADIUS} flatRadius={50} showCollisionBox={showCollisionMeshes} />
             {/* Resource nodes scattered across terrain */}
             <ResourceSpawner groundY={groundY} wsSend={onAvatarMove || null} />
-            {/* Mineable asteroid deposits */}
+            {/* Equipment pickups (jetpack, etc.) near spawn */}
+            <EquipmentPickups groundY={groundY} wsSend={onAvatarMove || null} />
+            {/* Mineable asteroid deposits */}}
             <MineableAsteroidSpawner groundY={groundY} roomSeed={42} wsSend={onAvatarMove || null} />
             {/* Base building system — placed pieces + ghost preview */}
             <Suspense fallback={null}>
@@ -6387,6 +6391,9 @@ function ConnectFour3DView({ board, lastMove, colors, onSelectColumn, flip180 = 
       {/* Resource gathering overlays (HTML outside Canvas) */}
       <ResourceOverlays />
 
+      {/* Equipment pickup overlays (HTML outside Canvas) */}
+      <EquipmentPickupOverlays />
+
       {/* Mining progress overlays (HTML outside Canvas) */}
       <MiningOverlays />
 
@@ -6395,6 +6402,9 @@ function ConnectFour3DView({ board, lastMove, colors, onSelectColumn, flip180 = 
 
       {/* Wave defense overlays (HTML outside Canvas) */}
       <WaveOverlays />
+
+      {/* Gamepad button hints HUD (HTML outside Canvas) */}
+      <GamepadHUD />
 
       {/* ── Weapon Transform Editor (toggle button + panel) ── */}
       {!gunEditorOpen && (
